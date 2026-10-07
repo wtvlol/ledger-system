@@ -137,9 +137,11 @@ JSON strings. A reversal also contains `originalTransactionId`.
 Errors include `code`, `message`, `retryable`, and `outcome`. Invalid input returns
 400, missing records/routes 404, unsupported methods 405, business conflicts 409,
 retryable queue/clock/database
-conditions 503, and unexpected failures 500. `NOT_POSTED` is a confirmed failure;
-`UNKNOWN` means the caller must retry the original key to resolve its result.
-HTTP timeout does not cancel the worker or establish failure.
+conditions 503, and unexpected failures 500. `NOT_POSTED` confirms that this
+attempt did not post; it does not resolve an earlier uncertain attempt when the
+retry was rejected before the successful-key lookup. `UNKNOWN` means the caller
+must retry the original key to resolve its result. HTTP timeout does not cancel
+the worker or establish failure.
 
 Successful keys are global across transfers and reversals and never expire while
 ledger records exist. Same-key retries replay the original immutable result;
@@ -150,6 +152,11 @@ The frontend saves the key and exact inputs before sending. After an uncertain
 outcome, use **Retry**, including after a reload. Unreadable browser storage blocks
 new financial actions. Keep the same browser origin and storage when resolving a
 pending request; clearing it discards the client-side recovery identity.
+Queue, waiter-limit, database, shutdown, and pre-execution validation errors on a
+retry retain the original uncertainty and key. Only a successful original-key
+result or a recognized worker rejection after its successful-key lookup resolves
+that uncertainty; unfamiliar errors preserve it. A first attempt confirmed never
+posted still permits a deliberate new action.
 
 ## Exact arithmetic and FX
 

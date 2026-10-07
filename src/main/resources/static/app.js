@@ -7,6 +7,13 @@ const requests = new RequestStore({
   setItem: (key, value) => localStorage.setItem(key, value),
   removeItem: (key) => localStorage.removeItem(key),
 });
+// These worker failures follow the successful-key lookup and confirm rollback.
+// Other errors cannot resolve an earlier attempt's uncertain outcome.
+const resolvedFailureCodes = new Set([
+  'INSUFFICIENT_FUNDS', 'BALANCE_OVERFLOW', 'ALREADY_REVERSED',
+  'MISSING_FX_RATE', 'INVALID_FX_RATE', 'ZERO_FX_CREDIT',
+  'FX_NOT_REPRESENTABLE', 'CLOCK_REGRESSION', 'OPERATION_FAILED',
+]);
 let isInFlight = false;
 let historyCursor = null;
 let historyAccount = null;
@@ -70,6 +77,7 @@ async function submitFinancial(request) {
   if (isInFlight || requests.isBlocked) {
     return;
   }
+  const hasUnresolvedOutcome = !request && !!requests.pending?.uncertain;
   try {
     if (request) {
       requests.retain({...request, key: crypto.randomUUID(), uncertain: true});
@@ -110,10 +118,12 @@ async function submitFinancial(request) {
         error.message, true);
     }
   } catch (error) {
+    const isUncertain = error.outcome !== 'NOT_POSTED' ||
+      (hasUnresolvedOutcome && !resolvedFailureCodes.has(error.code));
     if (requests.pending) {
       const pending = {
         ...requests.pending,
-        uncertain: error.outcome !== 'NOT_POSTED',
+        uncertain: isUncertain,
       };
       try {
         requests.retain(pending);
@@ -127,7 +137,7 @@ async function submitFinancial(request) {
     showResult({
       code: error.code || 'CONNECTION_ERROR',
       message: error.message,
-      outcome: error.outcome || 'UNKNOWN',
+      outcome: isUncertain ? 'UNKNOWN' : 'NOT_POSTED',
     });
   } finally {
     isInFlight = false;
