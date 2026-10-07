@@ -1,0 +1,16 @@
+{
+  "name": "ledger-system-checks",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=22.13.0"},
+  "scripts": {
+    "lint": "eslint . --max-warnings 0",
+    "test": "node --test src/test/js/*.test.js",
+    "check": "npm run lint && npm test"
+  },
+  "devDependencies": {
+    "eslint": "10.12.0",
+    "@stylistic/eslint-plugin": "5.10.0"
+  }
+}

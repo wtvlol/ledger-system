@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ledger</title>
+  <style>
+    body{font:16px/1.5 system-ui,sans-serif;max-width:1100px;margin:2rem auto;padding:0 1rem;color:#202a36;background:#f8fafc}
+    h1,h2{line-height:1.2}section{background:white;border:1px solid #d5dde5;border-radius:6px;padding:1rem;margin:1rem 0}
+    label{display:block;margin:.6rem 0}input,select,button{font:inherit;padding:.4rem .6rem}input,select{max-width:100%;box-sizing:border-box}
+    button{cursor:pointer;margin:.3rem .3rem .3rem 0}button:disabled{cursor:default;opacity:.5}
+    .forms{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}.forms section{margin:0}
+    table{border-collapse:collapse;width:100%;min-width:480px;font-size:.9rem}th,td{text-align:left;padding:.5rem;border-bottom:1px solid #ddd;white-space:nowrap}
+    .scroll{overflow:auto}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#eef2f6;padding:1rem}#status{padding:.7rem;min-height:1.5rem}
+    .error{color:#9d2424}.success{color:#17623e}.muted{color:#526171;font-size:.9rem}[hidden]{display:none!important}
+  </style>
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <h1>Internal ledger</h1>
+  <p>Transfer money, review balances, and reconcile monthly records.</p>
+  <div id="status" role="status" aria-live="polite"></div>
+  <section id="pending" hidden>
+    <h2>Saved financial request</h2>
+    <p id="pending-description"></p>
+    <button id="retry">Retry the saved request</button>
+    <button id="new-action" hidden>Start a new action</button>
+  </section>
+  <section>
+    <h2>Accounts</h2><button id="refresh">Refresh balances and rates</button>
+    <div class="scroll"><table><thead><tr><th>Account</th><th>Currency</th><th>Balance</th><th>Opening balance</th></tr></thead><tbody id="accounts"></tbody></table></div>
+  </section>
+  <div class="forms">
+    <section>
+      <h2>Transfer</h2>
+      <form id="transfer-form">
+        <label>From <select id="source" required></select></label>
+        <label>To <select id="destination" required></select></label>
+        <label>Amount in source currency <input id="amount" type="text" inputmode="decimal" maxlength="64" placeholder="10.00" required></label>
+        <button id="transfer-submit" type="submit">Transfer</button>
+      </form>
+      <p class="muted">The server calculates currency conversion using the stored demo rate.</p>
+    </section>
+    <section>
+      <h2>Reverse a transfer</h2>
+      <form id="reversal-form">
+        <label>Original transaction ID <input id="original" type="text" maxlength="64" required></label>
+        <button id="reversal-submit" type="submit">Reverse</button>
+      </form>
+      <p class="muted">Returns the original posted amounts. The recipient must still have sufficient funds.</p>
+    </section>
+  </div>
+  <section>
+    <h2>History</h2>
+    <label>Account <select id="history-account"></select></label>
+    <button id="history-load">Load history</button><button id="history-next" hidden>Next page</button>
+    <div class="scroll"><table><thead><tr><th>Posted at (UTC)</th><th>Type / ID</th><th>From → to</th><th>Debit</th><th>Credit</th></tr></thead><tbody id="history"></tbody></table></div>
+  </section>
+  <section>
+    <h2>Reconciliation</h2>
+    <button id="integrity">Check current ledger</button>
+    <label>Completed UTC month <input id="month" type="month" required></label>
+    <button id="month-close">Save month-end balances</button>
+    <button id="month-compare">Compare saved balances with current balances</button>
+    <button id="close-list">View saved month reports</button>
+    <p class="muted">Comparison includes all posted movements since the saved balance. Month-end reports are retained unchanged.</p>
+  </section>
+  <section>
+    <h2>Exchange rates</h2>
+    <p class="muted">Stored synthetic demo rates. These are not current market quotes.</p>
+    <div class="scroll"><table><thead><tr><th>Currency</th><th>Name</th><th>Decimal places</th><th>Units per USD</th><th>USD per unit</th></tr></thead><tbody id="exchange-rates"></tbody></table></div>
+    <pre id="configuration"></pre>
+  </section>
+  <section><h2>Result</h2><pre id="result" aria-live="polite">Select an action to view its result.</pre></section>
+</body>
+</html>
