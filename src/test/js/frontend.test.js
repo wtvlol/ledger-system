@@ -156,6 +156,114 @@ test('confirmed failure permits a new action with a new key', async () => {
   });
 });
 
+for (const kind of ['transfer', 'reversal']) {
+  for (const code of [
+    'QUEUE_UNAVAILABLE', 'TOO_MANY_WAITERS', 'DATABASE_UNAVAILABLE',
+    'SHUTDOWN', 'INVALID_REQUEST', 'UNRECOGNIZED_FAILURE',
+  ]) {
+    test(`${kind} retains uncertainty after ${code} and reload`, async () => {
+      const name = `${kind}-${code}`;
+      await withPage(name, async (attempt) => {
+        if (attempt === 1) {
+          if (kind === 'reversal') {
+            throw new Error('Committed response was lost');
+          }
+          return {ok: false, json: async () => ({
+            message: 'Response deadline', code: 'RESPONSE_TIMEOUT',
+            outcome: 'UNKNOWN',
+          })};
+        }
+        if (attempt < 4) {
+          return {ok: false, json: async () => ({
+            message: 'Retry did not execute', code, outcome: 'NOT_POSTED',
+          })};
+        }
+        return {ok: true, json: async () => ({
+          type: kind.toUpperCase(), confirmation: 'COMMITTED',
+          transactionId: 'original-result',
+        })};
+      }, async (getControl, requests, storage) => {
+        getControl('original').value = 'original-transfer';
+        getControl(`${kind}-form`).dispatch('submit');
+        await waitForCondition(() =>
+          getControl('status').className === 'error');
+        await getControl('retry').dispatch('click');
+        assert.equal(getControl('new-action').hidden, true);
+        assert.equal(getControl('transfer-submit').disabled, true);
+        assert.equal(getControl('reversal-submit').disabled, true);
+        assert.equal(JSON.parse([...storage.values()][0]).uncertain, true);
+        await getControl('new-action').dispatch('click');
+        assert.equal(storage.size, 1);
+        assert.equal(
+          getControl('result').textContent.includes('UNKNOWN'), true);
+
+        getControl('configuration').textContent = '';
+        await import(`../../main/resources/static/app.js?test=reload-${name}`);
+        await waitForCondition(() => getControl('configuration').textContent);
+        await getControl('retry').dispatch('click');
+        assert.equal(getControl('new-action').hidden, true);
+        assert.equal(JSON.parse([...storage.values()][0]).uncertain, true);
+        await getControl('retry').dispatch('click');
+        assert.equal(requests.length, 4);
+        for (const request of requests.slice(1)) {
+          assert.deepEqual(request, requests[0]);
+        }
+        assert.equal(storage.size, 0);
+        assert.equal(getControl('transfer-submit').disabled, false);
+        assert.equal(getControl('reversal-submit').disabled, false);
+        assert.equal(getControl('status').textContent, 'Committed.');
+      });
+    });
+  }
+}
+
+test('worker rejection resolves an uncertain failed transfer', async () => {
+  await withPage('unknown-then-business-rejection', async (attempt) => ({
+    ok: false,
+    json: async () => attempt === 1 ? {
+      message: 'Response deadline', code: 'RESPONSE_TIMEOUT',
+      outcome: 'UNKNOWN',
+    } : {
+      message: 'Insufficient funds', code: 'INSUFFICIENT_FUNDS',
+      outcome: 'NOT_POSTED',
+    },
+  }), async (getControl, requests, storage) => {
+    getControl('transfer-form').dispatch('submit');
+    await waitForCondition(() => getControl('status').className === 'error');
+    await getControl('retry').dispatch('click');
+    assert.equal(getControl('new-action').hidden, false);
+    assert.equal(JSON.parse([...storage.values()][0]).uncertain, false);
+    assert.deepEqual(requests[1], requests[0]);
+    await getControl('new-action').dispatch('click');
+    assert.equal(storage.size, 0);
+    assert.equal(getControl('transfer-submit').disabled, false);
+  });
+});
+
+for (const code of ['QUEUE_UNAVAILABLE', 'TOO_MANY_WAITERS']) {
+  test(`first-attempt ${code} permits a deliberate new action`, async () => {
+    await withPage(`first-${code}`, async () => ({
+      ok: false,
+      json: async () => ({
+        message: 'Not admitted', code, outcome: 'NOT_POSTED',
+      }),
+    }), async (getControl, requests, storage) => {
+      getControl('transfer-form').dispatch('submit');
+      await waitForCondition(() =>
+        getControl('status').className === 'error');
+      assert.equal(getControl('new-action').hidden, false);
+      assert.equal(JSON.parse([...storage.values()][0]).uncertain, false);
+      await getControl('new-action').dispatch('click');
+      assert.equal(storage.size, 0);
+      getControl('transfer-form').dispatch('submit');
+      await waitForCondition(() => requests.length === 2 &&
+        getControl('status').className === 'error');
+      assert.notEqual(requests[0].options.headers['Idempotency-Key'],
+        requests[1].options.headers['Idempotency-Key']);
+    });
+  });
+}
+
 
 test('repeated history clicks admit only one page read at a time', async () => {
   let finishRead;

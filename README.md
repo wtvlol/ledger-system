@@ -150,6 +150,12 @@ The frontend saves the key and exact inputs before sending. After an uncertain
 outcome, use **Retry**, including after a reload. Unreadable browser storage blocks
 new financial actions. Keep the same browser origin and storage when resolving a
 pending request; clearing it discards the client-side recovery identity.
+If a retry is rejected before its successful key can be checked, the earlier
+unknown outcome remains unresolved. Queue saturation, waiter limits, database
+failures, and shutdown do not enable a new action or discard that key. The browser
+keeps retrying the same details, including after reload, until a committed replay
+or a definitive worker business rejection resolves the request. Unknown error
+codes preserve uncertainty rather than assume that a prior attempt failed.
 
 ## Exact arithmetic and FX
 
