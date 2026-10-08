@@ -281,6 +281,30 @@ Spring's server graceful-shutdown phase is 20 seconds. The database-lock wait is
 independent of the HTTP deadline. Defaults prioritize clarity and bounded memory
 for a local demo; they are not throughput promises.
 
+## Java source structure
+
+Application code lives under `src/main/java/com/example/ledger/`:
+
+| Package | Responsibility |
+| --- | --- |
+| Root | `LedgerApplication`, the Spring Boot entry point and component-scan root. |
+| `api` | HTTP endpoints, asynchronous response waiting, and API error handling. |
+| `config` | Startup settings and Spring bean wiring. |
+| `domain` | Exact money arithmetic, currency precision, FX calculations, and ledger errors. |
+| `persistence` | SQLite connections, schema initialization/migration, and transaction-scoped queries. |
+| `service` | Queued financial operations, reconciliation, and account/posting response views. |
+| `concurrency` | The bounded FIFO write worker and its shutdown lifecycle. |
+| `support` | Shared UTC timestamp formatting and ordered report-object construction. |
+
+JUnit packages under `src/test/java/com/example/ledger/` mirror the relevant
+application packages. Shared fixtures, worker-failure assertions, and the child
+JVM used by crash recovery tests live in the test-only `support` package.
+
+Financial transaction boundaries remain in `service/LedgerService`: persistence
+queries use the caller's transaction, and financial writes run through the single
+worker. Account/posting view helpers remain internal to the service package;
+shared formatting has no dependency on the API, service, or persistence packages.
+
 ## Verification and scope
 
 JUnit tests are in `src/test/java`; JavaScript tests are in `src/test/js`. Temporary
