@@ -201,7 +201,7 @@ test('confirmed failure permits a new action with a new key', async () => {
 for (const kind of ['transfer', 'reversal']) {
   for (const code of [
     'QUEUE_UNAVAILABLE', 'TOO_MANY_WAITERS', 'DATABASE_UNAVAILABLE',
-    'SHUTDOWN', 'INVALID_REQUEST', 'UNRECOGNIZED_FAILURE',
+    'SHUTDOWN', 'INVALID_REQUEST', 'NOT_FOUND', 'UNRECOGNIZED_FAILURE',
   ]) {
     test(`${kind} retains uncertainty after ${code} and reload`, async () => {
       const name = `${kind}-${code}`;
@@ -258,6 +258,36 @@ for (const kind of ['transfer', 'reversal']) {
     });
   }
 }
+
+test('missing original resolves an uncertain reversal without losing its key',
+  async () => {
+    await withPage('missing-original', async (attempt) => ({
+      ok: false,
+      json: async () => attempt === 1 ? {
+        message: 'Response deadline', code: 'RESPONSE_TIMEOUT',
+        outcome: 'UNKNOWN',
+      } : {
+        message: 'Original transfer not found',
+        code: 'ORIGINAL_TRANSACTION_NOT_FOUND', outcome: 'NOT_POSTED',
+      },
+    }), async (getControl, requests, storage) => {
+      getControl('original').value = 'missing-original';
+      getControl('reversal-form').dispatch('submit');
+      await waitForCondition(() => getControl('status').className === 'error');
+      assert.equal(getControl('transfer-submit').disabled, true);
+      assert.equal(getControl('new-action').hidden, true);
+      await getControl('retry').dispatch('click');
+      assert.deepEqual(requests[1], requests[0]);
+      assert.equal(JSON.parse([...storage.values()][0]).uncertain, false);
+      assert.equal(getControl('new-action').hidden, false);
+      assert.equal(JSON.parse(getControl('result').textContent).outcome,
+        'NOT_POSTED');
+      await getControl('new-action').dispatch('click');
+      assert.equal(storage.size, 0);
+      assert.equal(getControl('transfer-submit').disabled, false);
+      assert.equal(getControl('reversal-submit').disabled, false);
+    });
+  });
 
 test('worker rejection resolves an uncertain failed transfer', async () => {
   await withPage('unknown-then-business-rejection', async (attempt) => ({

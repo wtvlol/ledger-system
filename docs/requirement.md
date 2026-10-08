@@ -85,6 +85,7 @@ History pagination must use a cursor containing the last returned timestamp and 
 - A retry of a failed request with the same key must recheck current conditions and may succeed after funding through another transfer. Once a request succeeds, later retries must replay that success.
 - A lost response, HTTP timeout, or uncertain commit outcome must not be treated as a confirmed failed transfer. The caller must retain and retry the original key so the persisted successful result can resolve the outcome safely.
 - Rejection of a retry before checking its successful key does not resolve an earlier unknown outcome. The frontend must retain the original uncertainty, key, and business details after queue saturation, waiter-limit, database, shutdown, or other unclassified failures, including across reload. Only a committed result or a definitive serialized worker rejection after the successful-key lookup may resolve that earlier uncertainty and allow a deliberate new action.
+- A reversal whose original transaction is missing must return `ORIGINAL_TRANSACTION_NOT_FOUND` with HTTP 404 and `NOT_POSTED` only after the worker checks its successful key. This definitive rejection must enable a deliberate new action; a generic route/account `NOT_FOUND` must not resolve an earlier uncertain outcome. Display saved-request recovery controls beside the financial forms.
 
 ### 4.2 Reversals and corrections
 

@@ -281,6 +281,11 @@ with a SGD 13.50 debit and a USD 10.00 credit, whatever the current quote is.
   storage blocks new financial actions; clearing storage loses the client-side
   recovery identity. Independent browser tabs are not coordinated by a shared
   submission lock; API duplicate prevention applies when they reuse the same key.
+- A missing original transfer produces `ORIGINAL_TRANSACTION_NOT_FOUND` only
+  after the reversal worker checks the saved successful key. Retrying that key
+  resolves this rejection and enables **Start a new action**. A generic `NOT_FOUND`
+  does not establish that an earlier uncertain request failed. Recovery controls
+  appear immediately before the transfer and reversal forms.
 - Java 17 is the source target. Gradle Wrapper builds the application and executes
   JUnit, Checkstyle, JavaScript lint, and JavaScript tests. Node and npm support
   development checks; running the packaged application needs Java and a browser.

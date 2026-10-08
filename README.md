@@ -194,6 +194,12 @@ or a definitive worker business rejection resolves the request. Unknown error
 codes preserve uncertainty rather than assume that a prior attempt failed.
 A first attempt confirmed never posted still permits a deliberate new action.
 
+If Transfer and Reverse are disabled, inspect the **Saved financial request**
+section immediately above the forms and retry the saved request. A missing
+original transfer returns `ORIGINAL_TRANSACTION_NOT_FOUND` after the worker
+checks the key. This resolves a stale reversal and enables **Start a new action**.
+Generic route/account `NOT_FOUND` responses preserve an earlier unknown outcome.
+
 ## Exact arithmetic and FX
 
 `Money` stores currency plus nonnegative integer minor units, with normalized record

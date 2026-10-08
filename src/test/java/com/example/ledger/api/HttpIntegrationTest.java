@@ -166,6 +166,39 @@ class HttpIntegrationTest {
     }
 
     /**
+     * Verifies missing-original reversals resolve only after the saved successful key is checked.
+     *
+     * @throws Exception if the isolated server, transaction exchange, or cleanup fails.
+     */
+    @Test
+    void reverse_missingOriginal_definitiveRejectionWithoutFinancialEffects() throws Exception {
+        try (ConfigurableApplicationContext context = runWeb(false)) {
+            String base = getBaseUrl(context);
+            String path = base + "/transactions/missing-original/reversal";
+            for (int attempt = 0; attempt < 2; attempt++) {
+                HttpResponse<String> response = post(path, "saved-reversal", null);
+                assertEquals(404, response.statusCode(), response.body());
+                assertEquals("ORIGINAL_TRANSACTION_NOT_FOUND",
+                        json.readTree(response.body()).get("code").asString());
+                assertEquals("NOT_POSTED", json.readTree(response.body()).get("outcome").asString());
+            }
+            JdbcTemplate jdbc = new JdbcTemplate(context.getBean(SqliteDatabase.class).getReader());
+            assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM transactions", Integer.class));
+            assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM successful_requests", Integer.class));
+            assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM balance_observations", Integer.class));
+            assertEquals(0, jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM accounts WHERE balance_minor<>opening_minor", Integer.class));
+            assertEquals(200, post(base + "/transactions", "saved-reversal",
+                    "{\"sourceAccount\":\"account-01\","
+                            + "\"destinationAccount\":\"account-02\",\"amount\":\"1\"}").statusCode());
+            HttpResponse<String> conflict = post(path, "saved-reversal", null);
+            assertEquals(409, conflict.statusCode(), conflict.body());
+            assertEquals("IDEMPOTENCY_CONFLICT", json.readTree(conflict.body()).get("code").asString());
+            assertEquals(1, jdbc.queryForObject("SELECT COUNT(*) FROM transactions", Integer.class));
+        }
+    }
+
+    /**
      * Verifies a supplied reversal body is rejected rather than silently posting a full reversal.
      *
      * @throws Exception if the isolated server, transaction exchange, or cleanup fails.

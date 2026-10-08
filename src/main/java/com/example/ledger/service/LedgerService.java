@@ -405,7 +405,17 @@ public final class LedgerService {
         if (replay != null) {
             return replay;
         }
-        Posting original = getTransaction(writer, originalId);
+        Posting original;
+        try {
+            original = getTransaction(writer, originalId);
+        } catch (LedgerException error) {
+            if (!error.getCode().equals("NOT_FOUND")) {
+                throw error;
+            }
+            // This rejection follows the successful-key lookup and resolves an uncertain reversal.
+            throw new LedgerException(
+                    "ORIGINAL_TRANSACTION_NOT_FOUND", "Original transfer not found", 404, false, "NOT_POSTED");
+        }
         if (!original.kind().equals("TRANSFER")) {
             throw LedgerException.createInvalid("Only an original transfer can be reversed");
         }
