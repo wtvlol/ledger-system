@@ -13,14 +13,18 @@ root:
 
 ```sh
 ./gradlew check bootJar
+mkdir -p data
+cp -n demo/ledger.db data/reviewer.db
 java --enable-native-access=ALL-UNNAMED -jar build/libs/ledger-system-0.1.0.jar \
   --ledger.database=data/reviewer.db --server.port=8081
 ```
 
 Open http://127.0.0.1:8081. The separate database leaves `data/ledger.db`
-untouched. On its first run, it has Alice and Bob, 15 currencies each, opening
+untouched. The committed [demo database](../demo/ledger.db) has Alice and Bob, 15 currencies each, opening
 funds, 210 synthetic directional rates, and no transactions or month reports.
 Restarting preserves activity. For another fresh demo, use a new database path.
+`cp -n` preserves an existing reviewer database; choose an unused destination
+to start from the fixture again. Run a copy, keeping the tracked fixture unchanged.
 The packaged application runs on Java 17 or newer; Java 21 is needed for the
 build's Checkstyle checks.
 

@@ -37,6 +37,12 @@ transfers, retries, reversals, and reconciliation in an isolated database.
 
 ## Demo data
 
+A ready-to-use SQLite database is committed at [demo/ledger.db](demo/ledger.db).
+It contains the documented opening funds, users, currency accounts, and synthetic
+rates, with no transactions or saved reports. See [the fixture instructions](demo/README.md)
+to copy it into an ignored working database before running the app. The usual
+startup also creates equivalent seed data when its database file does not exist.
+
 The currency selection follows the highest turnover shares in the
 [BIS April 2025 survey, Table 3](https://www.bis.org/publications/202509-commentary-otc-derivatives.pdf).
 The quotes below are **synthetic demo fixtures**, not prices from that survey or
