@@ -33,8 +33,8 @@ function createRequest() {
     kind: 'transfer',
     path: '/transactions',
     body: {
-      sourceAccount: 'usd-alice',
-      destinationAccount: 'usd-bob',
+      sourceAccount: 'account-01',
+      destinationAccount: 'account-02',
       amount: '92233720368547758.07',
     },
     uncertain: true,

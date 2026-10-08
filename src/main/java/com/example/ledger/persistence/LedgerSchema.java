@@ -162,7 +162,7 @@ public final class LedgerSchema {
     }
 
     /**
-     * Seeds only new demo accounts with immutable opening balances and effective timestamps.
+     * Seeds neutral account IDs with separate ownership, immutable opening balances, and effective timestamps.
      *
      * @param jdbc JDBC operations participating in the caller's database transaction.
      * @param openingTime Effective UTC opening instant recorded for the accounts being seeded.
@@ -170,16 +170,18 @@ public final class LedgerSchema {
      */
     private static void seedAccounts(JdbcTemplate jdbc, Instant openingTime, boolean isMigration) {
         String opened = LedgerFormatting.formatTimestamp(openingTime);
+        int accountNumber = 0;
         for (LedgerCurrency currency : LedgerCurrency.values()) {
-            if (isMigration && (currency == LedgerCurrency.USD || currency == LedgerCurrency.SGD)) {
-                continue;
-            }
             long multiplier = currency.getMinorUnitDigits() == 0 ? 1 : 100;
             for (String owner : List.of("alice", "bob")) {
+                String accountId = String.format(Locale.ROOT, "account-%02d", ++accountNumber);
+                if (isMigration && (currency == LedgerCurrency.USD || currency == LedgerCurrency.SGD)) {
+                    continue;
+                }
                 long balance = (owner.equals("alice") ? 1000 : 500) * multiplier;
                 jdbc.update(
                         "INSERT INTO accounts VALUES (?,?,?,?,?,?)",
-                        currency.name().toLowerCase(Locale.ROOT) + "-" + owner,
+                        accountId,
                         currency.name(),
                         balance,
                         opened,

@@ -77,13 +77,13 @@ async function withPage(name, respond, verify, respondToRead = null) {
     }
     const data = path === '/users' ? [
       {id: 'alice', name: 'Alice', accounts: [
-        {id: 'usd-alice', userId: 'alice', currency: 'USD',
+        {id: 'account-01', userId: 'alice', currency: 'USD',
           balance: '1000.00', openingBalance: '1000.00'},
-        {id: 'sgd-alice', userId: 'alice', currency: 'SGD',
+        {id: 'account-19', userId: 'alice', currency: 'SGD',
           balance: '1000.00', openingBalance: '1000.00'},
       ]},
       {id: 'bob', name: 'Bob', accounts: [
-        {id: 'usd-bob', userId: 'bob', currency: 'USD',
+        {id: 'account-02', userId: 'bob', currency: 'USD',
           balance: '500.00', openingBalance: '500.00'},
       ]},
     ] : {
@@ -103,8 +103,8 @@ async function withPage(name, respond, verify, respondToRead = null) {
   try {
     await import(`../../main/resources/static/app.js?test=${name}`);
     await waitForCondition(() => getControl('configuration').textContent);
-    getControl('source').value = 'usd-alice';
-    getControl('destination').value = 'usd-bob';
+    getControl('source').value = 'account-01';
+    getControl('destination').value = 'account-02';
     getControl('amount').value = '0.10';
     await verify(getControl, financialRequests, storage);
   } finally {
@@ -154,24 +154,26 @@ test('user holdings group currencies and submit selected account identities',
       const rows = getControl('accounts').children;
       assert.deepEqual(rows.map((row) =>
         row.children.map((cell) => cell.textContent)), [
-        ['Alice', 'USD', 'usd-alice', '1000.00', '1000.00'],
-        ['Alice', 'SGD', 'sgd-alice', '1000.00', '1000.00'],
-        ['Bob', 'USD', 'usd-bob', '500.00', '500.00'],
+        ['Alice', 'USD', 'account-01', '1000.00', '1000.00'],
+        ['Alice', 'SGD', 'account-19', '1000.00', '1000.00'],
+        ['Bob', 'USD', 'account-02', '500.00', '500.00'],
       ]);
       const groups = getControl('source').children;
       assert.deepEqual(groups.map((group) => group.label), ['Alice', 'Bob']);
       assert.deepEqual(groups[0].children.map((option) => option.value),
-        ['usd-alice', 'sgd-alice']);
-      getControl('destination').value = 'sgd-alice';
+        ['account-01', 'account-19']);
+      assert.deepEqual(groups[0].children.map((option) => option.textContent),
+        ['USD', 'SGD']);
+      getControl('destination').value = 'account-19';
       getControl('transfer-form').dispatch('submit');
       await waitForCondition(() => requests.length === 1 &&
         getControl('status').textContent === 'Committed.');
       assert.deepEqual(JSON.parse(requests[0].options.body), {
-        sourceAccount: 'usd-alice', destinationAccount: 'sgd-alice',
+        sourceAccount: 'account-01', destinationAccount: 'account-19',
         amount: '0.10',
       });
       await getControl('refresh').dispatch('click');
-      assert.equal(getControl('destination').value, 'sgd-alice');
+      assert.equal(getControl('destination').value, 'account-19');
       assert.equal(getControl('accounts').children.length, 3);
     });
   });
@@ -307,7 +309,7 @@ test('repeated history clicks admit only one page read at a time', async () => {
   let finishRead;
   let readCount = 0;
   await withPage('history', async () => {}, async (getControl) => {
-    getControl('history-account').value = 'usd-alice';
+    getControl('history-account').value = 'account-01';
     const first = getControl('history-load').dispatch('click');
     const duplicate = getControl('history-load').dispatch('click');
     await waitForCondition(() => readCount === 1);
@@ -315,7 +317,7 @@ test('repeated history clicks admit only one page read at a time', async () => {
     finishRead({ok: true, json: async () => ({
       postingBoundary: '1', nextCursor: null, items: [{
         postedAt: '2026-10-07T00:00:00Z', type: 'TRANSFER', transactionId: 'id',
-        sourceAccount: 'usd-alice', destinationAccount: 'usd-bob',
+        sourceAccount: 'account-01', destinationAccount: 'account-02',
         debitAmount: '0.10', creditAmount: '0.10',
         sourceCurrency: 'USD', destinationCurrency: 'USD',
       }],

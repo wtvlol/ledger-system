@@ -39,16 +39,16 @@ class LedgerIntegrationTest {
     @Test
     void transfer_exactPostingAndIdempotency_oneEffect() throws Exception {
         try (TestRig rig = new TestRig(temporaryDirectory.resolve("ledger.db"))) {
-            Map<String, Object> result = rig.transfer("usd-alice", "usd-bob", "10", "key");
-            assertEquals(result, rig.transfer("usd-alice", "usd-bob", "10.00", "key"));
-            assertEquals("990.00", rig.getLedger().getBalance("usd-alice").get("balance"));
-            assertEquals("510.00", rig.getLedger().getBalance("usd-bob").get("balance"));
+            Map<String, Object> result = rig.transfer("account-01", "account-02", "10", "key");
+            assertEquals(result, rig.transfer("account-01", "account-02", "10.00", "key"));
+            assertEquals("990.00", rig.getLedger().getBalance("account-01").get("balance"));
+            assertEquals("510.00", rig.getLedger().getBalance("account-02").get("balance"));
             assertEquals(1, count(rig, "transactions"));
             assertEquals(2, count(rig, "balance_observations"));
             assertEquals("OK", rig.getLedger().checkIntegrity().get("status"));
             assertFailure(
                     rig.getLedger().transfer(
-                            new LedgerService.Transfer("usd-alice", "usd-bob", "11"), "key"),
+                            new LedgerService.Transfer("account-01", "account-02", "11"), "key"),
                     "IDEMPOTENCY_CONFLICT");
             assertFailure(
                     rig.getLedger().reverse((String) result.get("transactionId"), "key"),
@@ -65,10 +65,10 @@ class LedgerIntegrationTest {
     void transfer_failedRequestThenFunding_sameKeyCanSucceed() throws Exception {
         try (TestRig rig = new TestRig(temporaryDirectory.resolve("ledger.db"))) {
             LedgerService.Transfer request =
-                    new LedgerService.Transfer("usd-bob", "usd-alice", "600.00");
+                    new LedgerService.Transfer("account-02", "account-01", "600.00");
             assertFailure(rig.getLedger().transfer(request, "retry"), "INSUFFICIENT_FUNDS");
             assertEquals(0, count(rig, "successful_requests"));
-            rig.transfer("usd-alice", "usd-bob", "100", "fund");
+            rig.transfer("account-01", "account-02", "100", "fund");
             Map<String, Object> result = TestRig.await(rig.getLedger().transfer(request, "retry"));
             assertEquals(result, TestRig.await(rig.getLedger().transfer(request, "retry")));
             assertEquals(2, count(rig, "transactions"));
@@ -87,20 +87,20 @@ class LedgerIntegrationTest {
             for (String amount : List.of("0", "-1", "1.001", "92233720368547758.08")) {
                 assertFailure(
                         rig.getLedger().transfer(
-                                new LedgerService.Transfer("usd-alice", "usd-bob", amount), "key"),
+                                new LedgerService.Transfer("account-01", "account-02", amount), "key"),
                         "INVALID_REQUEST");
             }
             assertFailure(
                     rig.getLedger().transfer(
-                            new LedgerService.Transfer("usd-alice", "usd-alice", "1"), "key"),
+                            new LedgerService.Transfer("account-01", "account-01", "1"), "key"),
                     "INVALID_REQUEST");
             assertFailure(
                     rig.getLedger().transfer(
-                            new LedgerService.Transfer("absent", "usd-bob", "1"), "key"),
+                            new LedgerService.Transfer("absent", "account-02", "1"), "key"),
                     "NOT_FOUND");
             assertFailure(
                     rig.getLedger().transfer(
-                            new LedgerService.Transfer("usd-alice", "usd-bob", "1"), null),
+                            new LedgerService.Transfer("account-01", "account-02", "1"), null),
                     "INVALID_REQUEST");
             assertEquals(0, count(rig, "transactions"));
             assertEquals(0, count(rig, "successful_requests"));
@@ -129,12 +129,12 @@ class LedgerIntegrationTest {
                         probe)) {
             assertFailure(
                     rig.getLedger().transfer(
-                            new LedgerService.Transfer("usd-alice", "usd-bob", "1"), "key"),
+                            new LedgerService.Transfer("account-01", "account-02", "1"), "key"),
                     "OPERATION_FAILED");
-            assertEquals("1000.00", rig.getLedger().getBalance("usd-alice").get("balance"));
+            assertEquals("1000.00", rig.getLedger().getBalance("account-01").get("balance"));
             assertEquals(0, count(rig, "transactions"));
             assertEquals(0, count(rig, "balance_observations"));
-            rig.transfer("usd-alice", "usd-bob", "1", "key");
+            rig.transfer("account-01", "account-02", "1", "key");
             assertEquals("OK", rig.getLedger().checkIntegrity().get("status"));
         }
         try (TestRig rig =
@@ -150,9 +150,9 @@ class LedgerIntegrationTest {
                     () ->
                             TestRig.await(
                                     rig.getLedger().transfer(
-                                            new LedgerService.Transfer("usd-alice", "usd-bob", "1"),
+                                            new LedgerService.Transfer("account-01", "account-02", "1"),
                                             "key")));
-            assertEquals("1000.00", rig.getLedger().getBalance("usd-alice").get("balance"));
+            assertEquals("1000.00", rig.getLedger().getBalance("account-01").get("balance"));
             assertEquals(0, count(rig, "successful_requests"));
             assertEquals(0, count(rig, "balance_observations"));
         }
@@ -172,7 +172,7 @@ class LedgerIntegrationTest {
                     10000L,
                     LedgerFormatting.formatTimestamp(rig.getProperties().getOpeningAt()),
                     10000L);
-            LedgerService.Transfer debit = new LedgerService.Transfer("usd-small", "usd-bob", "80");
+            LedgerService.Transfer debit = new LedgerService.Transfer("usd-small", "account-02", "80");
             CompletableFuture<Map<String, Object>> first = rig.getLedger().transfer(debit, "first");
             CompletableFuture<Map<String, Object>> second = rig.getLedger().transfer(debit, "second");
             TestRig.await(first);
@@ -182,7 +182,7 @@ class LedgerIntegrationTest {
             for (int i = 0; i < 20; i++) {
                 duplicates.add(
                         rig.getLedger().transfer(
-                                new LedgerService.Transfer("usd-alice", "usd-bob", "1"),
+                                new LedgerService.Transfer("account-01", "account-02", "1"),
                                 "duplicate"));
             }
             Object original = TestRig.await(duplicates.get(0));
@@ -193,13 +193,13 @@ class LedgerIntegrationTest {
             for (int i = 0; i < 20; i++) {
                 credits.add(
                         rig.getLedger().transfer(
-                                new LedgerService.Transfer("usd-alice", "usd-bob", "0.10"),
+                                new LedgerService.Transfer("account-01", "account-02", "0.10"),
                                 "credit-" + i));
             }
             for (CompletableFuture<Map<String, Object>> future : credits) {
                 TestRig.await(future);
             }
-            assertEquals("583.00", rig.getLedger().getBalance("usd-bob").get("balance"));
+            assertEquals("583.00", rig.getLedger().getBalance("account-02").get("balance"));
             assertEquals("OK", rig.getLedger().checkIntegrity().get("status"));
         }
     }
@@ -224,17 +224,17 @@ class LedgerIntegrationTest {
             try {
                 assertTrue(started.await(2, TimeUnit.SECONDS));
                 LedgerService.Transfer request =
-                        new LedgerService.Transfer("usd-bob", "usd-alice", "600");
+                        new LedgerService.Transfer("account-02", "account-01", "600");
                 var failure = rig.getLedger().transfer(request, "retry");
                 var funding =
                         rig.getLedger().transfer(
-                                new LedgerService.Transfer("usd-alice", "usd-bob", "100"),
+                                new LedgerService.Transfer("account-01", "account-02", "100"),
                                 "funding");
                 var retry = rig.getLedger().transfer(request, "retry");
                 var duplicate = rig.getLedger().transfer(request, "retry");
                 var conflict =
                         rig.getLedger().transfer(
-                                new LedgerService.Transfer("usd-bob", "usd-alice", "601"), "retry");
+                                new LedgerService.Transfer("account-02", "account-01", "601"), "retry");
                 release.countDown();
                 TestRig.await(blocker);
                 assertFailure(failure, "INSUFFICIENT_FUNDS");
@@ -258,19 +258,19 @@ class LedgerIntegrationTest {
     @Test
     void reverse_successAndSpentRecipient_oneExactCorrection() throws Exception {
         try (TestRig rig = new TestRig(temporaryDirectory.resolve("ledger.db"))) {
-            Map<String, Object> original = rig.transfer("usd-alice", "usd-bob", "10", "transfer");
+            Map<String, Object> original = rig.transfer("account-01", "account-02", "10", "transfer");
             String id = (String) original.get("transactionId");
             CompletableFuture<Map<String, Object>> first = rig.getLedger().reverse(id, "reverse");
             CompletableFuture<Map<String, Object>> second = rig.getLedger().reverse(id, "other-reverse");
             Map<String, Object> reversed = TestRig.await(first);
             assertFailure(second, "ALREADY_REVERSED");
             assertEquals(reversed, TestRig.await(rig.getLedger().reverse(id, "reverse")));
-            assertEquals("1000.00", rig.getLedger().getBalance("usd-alice").get("balance"));
+            assertEquals("1000.00", rig.getLedger().getBalance("account-01").get("balance"));
             assertFailure(
                     rig.getLedger().reverse((String) reversed.get("transactionId"), "reverse-reversal"),
                     "INVALID_REQUEST");
-            original = rig.transfer("usd-alice", "usd-bob", "10", "second-transfer");
-            rig.transfer("usd-bob", "usd-alice", "510", "spend");
+            original = rig.transfer("account-01", "account-02", "10", "second-transfer");
+            rig.transfer("account-02", "account-01", "510", "spend");
             assertFailure(
                     rig.getLedger().reverse(
                             (String) original.get("transactionId"), "insufficient-reversal"),
@@ -298,7 +298,7 @@ class LedgerIntegrationTest {
             rig.getJdbc().update(
                     "UPDATE exchange_rates SET rate='1.245' "
                             + "WHERE source_currency='USD' AND destination_currency='SGD'");
-            original = rig.transfer("usd-alice", "sgd-bob", "1", "key");
+            original = rig.transfer("account-01", "account-20", "1", "key");
             assertEquals("1.24", original.get("creditAmount"));
         }
         LedgerProperties secondProperties = new LedgerProperties();
@@ -312,14 +312,14 @@ class LedgerIntegrationTest {
             rig.getJdbc().update(
                     "UPDATE exchange_rates SET rate='1.255' "
                             + "WHERE source_currency='USD' AND destination_currency='SGD'");
-            assertEquals(original, rig.transfer("usd-alice", "sgd-bob", "1.00", "key"));
+            assertEquals(original, rig.transfer("account-01", "account-20", "1.00", "key"));
             Map<String, Object> reversed =
                     TestRig.await(
                             rig.getLedger().reverse((String) original.get("transactionId"), "reverse"));
             assertEquals("1.24", reversed.get("debitAmount"));
             assertEquals("1.00", reversed.get("creditAmount"));
-            assertEquals("1000.00", rig.getLedger().getBalance("usd-alice").get("balance"));
-            assertEquals("500.00", rig.getLedger().getBalance("sgd-bob").get("balance"));
+            assertEquals("1000.00", rig.getLedger().getBalance("account-01").get("balance"));
+            assertEquals("500.00", rig.getLedger().getBalance("account-20").get("balance"));
             assertEquals("OK", rig.getLedger().checkIntegrity().get("status"));
         }
     }
@@ -340,13 +340,13 @@ class LedgerIntegrationTest {
                     Long.MAX_VALUE);
             assertFailure(
                     rig.getLedger().transfer(
-                            new LedgerService.Transfer("usd-alice", "usd-rich", "0.01"), "key"),
+                            new LedgerService.Transfer("account-01", "usd-rich", "0.01"), "key"),
                     "BALANCE_OVERFLOW");
             assertEquals(0, count(rig, "transactions"));
             assertEquals("OK", rig.getLedger().checkIntegrity().get("status"));
             assertTrue(rig.getLedger().checkIntegrity().toString().contains("92233720368549258.07"));
-            Map<String, Object> original = rig.transfer("usd-rich", "usd-bob", "1", "rich-out");
-            rig.transfer("usd-alice", "usd-rich", "1", "rich-refill");
+            Map<String, Object> original = rig.transfer("usd-rich", "account-02", "1", "rich-out");
+            rig.transfer("account-01", "usd-rich", "1", "rich-refill");
             assertFailure(
                     rig.getLedger().reverse((String) original.get("transactionId"), "reverse-overflow"),
                     "BALANCE_OVERFLOW");
@@ -387,24 +387,24 @@ class LedgerIntegrationTest {
                     DataAccessException.class,
                     () ->
                             rig.getJdbc().update(
-                                    "UPDATE accounts SET balance_minor=-1 WHERE id='usd-alice'"));
+                                    "UPDATE accounts SET balance_minor=-1 WHERE id='account-01'"));
             assertThrows(
                     DataAccessException.class,
                     () ->
                             rig.getJdbc().update(
-                                    "UPDATE accounts SET balance_minor=1.5 WHERE id='usd-alice'"));
+                                    "UPDATE accounts SET balance_minor=1.5 WHERE id='account-01'"));
             assertThrows(
                     DataAccessException.class,
                     () ->
                             rig.getJdbc().update(
-                                    "UPDATE accounts SET opening_minor=1 WHERE id='usd-alice'"));
+                                    "UPDATE accounts SET opening_minor=1 WHERE id='account-01'"));
             assertThrows(
                     DataAccessException.class,
                     () ->
                             rig.getJdbc().update(
                                     "INSERT INTO successful_requests VALUES"
                                             + " ('bad','bad','absent')"));
-            Map<String, Object> transfer = rig.transfer("usd-alice", "usd-bob", "1", "key");
+            Map<String, Object> transfer = rig.transfer("account-01", "account-02", "1", "key");
             assertThrows(
                     DataAccessException.class,
                     () ->
@@ -478,14 +478,14 @@ class LedgerIntegrationTest {
                 LedgerException error =
                         assertFailure(
                                 rig.getLedger().transfer(
-                                        new LedgerService.Transfer("usd-alice", "usd-bob", "1"),
+                                        new LedgerService.Transfer("account-01", "account-02", "1"),
                                         "key"),
                                 "DATABASE_UNAVAILABLE");
                 assertTrue(error.isRetryable());
-                assertEquals("1000.00", rig.getLedger().getBalance("usd-alice").get("balance"));
+                assertEquals("1000.00", rig.getLedger().getBalance("account-01").get("balance"));
                 connection.rollback();
             }
-            rig.transfer("usd-alice", "usd-bob", "1", "key");
+            rig.transfer("account-01", "account-02", "1", "key");
             assertEquals("OK", rig.getLedger().checkIntegrity().get("status"));
         }
     }
@@ -499,21 +499,21 @@ class LedgerIntegrationTest {
     void history_concurrentInsertBetweenPages_fixedBoundary() throws Exception {
         try (TestRig rig = new TestRig(temporaryDirectory.resolve("ledger.db"))) {
             for (int i = 0; i < 3; i++) {
-                rig.transfer("usd-alice", "usd-bob", "1", "key-" + i);
+                rig.transfer("account-01", "account-02", "1", "key-" + i);
             }
-            Map<String, Object> first = rig.getLedger().getHistory("usd-alice", 1, null);
+            Map<String, Object> first = rig.getLedger().getHistory("account-01", 1, null);
             String cursor = (String) first.get("nextCursor");
             assertNotNull(cursor);
-            rig.transfer("usd-alice", "usd-bob", "1", "later");
-            Map<String, Object> second = rig.getLedger().getHistory("usd-alice", 2, cursor);
+            rig.transfer("account-01", "account-02", "1", "later");
+            Map<String, Object> second = rig.getLedger().getHistory("account-01", 2, cursor);
             assertEquals(first.get("postingBoundary"), second.get("postingBoundary"));
             assertEquals(2, ((List<?>) second.get("items")).size());
             assertEquals(null, second.get("nextCursor"));
-            assertThrows(LedgerException.class, () -> rig.getLedger().getHistory("usd-bob", 1, cursor));
-            assertThrows(LedgerException.class, () -> rig.getLedger().getHistory("usd-alice", 0, null));
+            assertThrows(LedgerException.class, () -> rig.getLedger().getHistory("account-02", 1, cursor));
+            assertThrows(LedgerException.class, () -> rig.getLedger().getHistory("account-01", 0, null));
             assertThrows(
-                    LedgerException.class, () -> rig.getLedger().getHistory("usd-alice", 201, null));
-            assertThrows(LedgerException.class, () -> rig.getLedger().getHistory("usd-alice", 1, "bad"));
+                    LedgerException.class, () -> rig.getLedger().getHistory("account-01", 201, null));
+            assertThrows(LedgerException.class, () -> rig.getLedger().getHistory("account-01", 1, "bad"));
         }
     }
 

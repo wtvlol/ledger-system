@@ -36,23 +36,31 @@ class UserHoldingsTest {
             assertEquals(15, ((List<?>) alice.get("accounts")).size());
             assertTrue(((List<?>) alice.get("accounts")).stream()
                     .allMatch(account -> "alice".equals(((Map<?, ?>) account).get("userId"))));
-            Map<String, Object> result = rig.transfer("usd-alice", "sgd-alice", "10", "own-fx");
+            assertTrue(rig.getLedger().listAccounts().stream()
+                    .allMatch(account -> ((String) account.get("id")).matches("account-[0-9]{2}")));
+            assertThrows(LedgerException.class, () -> rig.getLedger().getUser("usd-alice"));
+            assertThrows(LedgerException.class, () -> rig.getLedger().getBalance("usd-alice"));
+            for (String table : List.of("transactions", "successful_requests", "balance_observations",
+                    "month_closes", "monthly_snapshots")) {
+                assertEquals(0, rig.getJdbc().queryForObject("SELECT COUNT(*) FROM " + table, Integer.class));
+            }
+            Map<String, Object> result = rig.transfer("account-01", "account-19", "10", "own-fx");
             assertEquals("13.50", result.get("creditAmount"));
-            assertEquals("990.00", rig.getLedger().getBalance("usd-alice").get("balance"));
-            assertEquals("1013.50", rig.getLedger().getBalance("sgd-alice").get("balance"));
-            assertEquals("500.00", rig.getLedger().getBalance("sgd-bob").get("balance"));
-            assertEquals("1000", rig.getLedger().getBalance("jpy-alice").get("balance"));
-            assertEquals(result, rig.transfer("usd-alice", "sgd-alice", "10.00", "own-fx"));
+            assertEquals("990.00", rig.getLedger().getBalance("account-01").get("balance"));
+            assertEquals("1013.50", rig.getLedger().getBalance("account-19").get("balance"));
+            assertEquals("500.00", rig.getLedger().getBalance("account-20").get("balance"));
+            assertEquals("1000", rig.getLedger().getBalance("account-05").get("balance"));
+            assertEquals(result, rig.transfer("account-01", "account-19", "10.00", "own-fx"));
             TestRig.await(rig.getLedger().reverse((String) result.get("transactionId"), "undo-own-fx"));
-            assertEquals("1000.00", rig.getLedger().getBalance("usd-alice").get("balance"));
-            assertEquals("1000.00", rig.getLedger().getBalance("sgd-alice").get("balance"));
+            assertEquals("1000.00", rig.getLedger().getBalance("account-01").get("balance"));
+            assertEquals("1000.00", rig.getLedger().getBalance("account-19").get("balance"));
             assertEquals("OK", rig.getLedger().checkIntegrity().get("status"));
             assertThrows(LedgerException.class, () -> rig.getLedger().getUser("absent"));
             assertThrows(LedgerException.class, () -> rig.getLedger().getUser("bad!"));
         }
         try (TestRig rig = new TestRig(file)) {
             assertEquals(15, ((List<?>) rig.getLedger().getUser("alice").get("accounts")).size());
-            assertEquals("alice", rig.getLedger().getBalance("usd-alice").get("userId"));
+            assertEquals("alice", rig.getLedger().getBalance("account-01").get("userId"));
             assertEquals(2, rig.getJdbc().queryForObject("SELECT COUNT(*) FROM transactions", Integer.class));
             assertEquals("OK", rig.getLedger().checkIntegrity().get("status"));
         }
@@ -76,7 +84,7 @@ class UserHoldingsTest {
                     "INSERT INTO accounts VALUES ('extra','USD',0,?,0,NULL)",
                     "2026-01-01T00:00:00.000000000Z"));
             assertThrows(DataAccessException.class, () -> rig.getJdbc().update(
-                    "UPDATE accounts SET user_id='bob' WHERE id='usd-alice'"));
+                    "UPDATE accounts SET user_id='bob' WHERE id='account-01'"));
             assertThrows(DataAccessException.class, () -> rig.getJdbc().update("DELETE FROM users"));
             assertThrows(DataAccessException.class, () -> rig.getJdbc().update(
                     "UPDATE users SET display_name='Changed' WHERE id='alice'"));

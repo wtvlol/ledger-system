@@ -39,11 +39,11 @@ public class CrashProcess {
                         });
                 started.await();
                 rig.getLedger().transfer(
-                        new LedgerService.Transfer("usd-alice", "usd-bob", "1"), "crash-key");
+                        new LedgerService.Transfer("account-01", "account-02", "1"), "crash-key");
                 Files.writeString(marker, "queued-but-not-started");
                 new CountDownLatch(1).await();
             }
-            rig.transfer("usd-alice", "usd-bob", "1", "crash-key");
+            rig.transfer("account-01", "account-02", "1", "crash-key");
             Files.writeString(marker, "committed-with-no-result-delivered-to-parent");
             new CountDownLatch(1).await();
         }

@@ -47,18 +47,18 @@ class WriteQueueTest {
                 assertTrue(started.await(2, TimeUnit.SECONDS));
                 var pending =
                         rig.getLedger().transfer(
-                                new LedgerService.Transfer("usd-alice", "usd-bob", "1"), "key");
+                                new LedgerService.Transfer("account-01", "account-02", "1"), "key");
                 assertFailure(
                         rig.getLedger().transfer(
-                                new LedgerService.Transfer("usd-alice", "usd-bob", "1"),
+                                new LedgerService.Transfer("account-01", "account-02", "1"),
                                 "overflow"),
                         "QUEUE_UNAVAILABLE");
-                assertEquals("1000.00", rig.getLedger().getBalance("usd-alice").get("balance"));
+                assertEquals("1000.00", rig.getLedger().getBalance("account-01").get("balance"));
                 release.countDown();
                 TestRig.await(blocking);
                 TestRig.await(pending);
-                rig.transfer("usd-alice", "usd-bob", "1", "overflow");
-                assertEquals("998.00", rig.getLedger().getBalance("usd-alice").get("balance"));
+                rig.transfer("account-01", "account-02", "1", "overflow");
+                assertEquals("998.00", rig.getLedger().getBalance("account-01").get("balance"));
             } finally {
                 release.countDown();
             }

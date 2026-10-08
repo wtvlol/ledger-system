@@ -38,22 +38,22 @@ class ReconciliationTest {
                         new LedgerProperties(),
                         clock,
                         id -> {})) {
-            rig.transfer("usd-alice", "usd-bob", "10", "january");
+            rig.transfer("account-01", "account-02", "10", "january");
             clock.set("2026-02-02T12:00:00Z");
-            rig.transfer("usd-bob", "usd-alice", "30", "february");
+            rig.transfer("account-02", "account-01", "30", "february");
             Map<String, Object> close = TestRig.await(rig.getLedger().closeMonth("2026-01"));
             assertEquals("OK", close.get("status"));
-            assertEquals("990.00", findAccountLine(close, "usd-alice").get("recordedBalance"));
-            assertEquals("1", findAccountLine(close, "usd-alice").get("lastIncludedSequence"));
+            assertEquals("990.00", findAccountLine(close, "account-01").get("recordedBalance"));
+            assertEquals("1", findAccountLine(close, "account-01").get("lastIncludedSequence"));
             assertEquals(close, TestRig.await(rig.getLedger().closeMonth("2026-01")));
             Map<String, Object> comparison = rig.getLedger().compareMonth("2026-01");
             assertEquals("OK", comparison.get("status"));
             assertEquals(
-                    "1020.00", findAccountLine(comparison, "usd-alice").get("expectedBalance"));
-            rig.transfer("usd-alice", "usd-bob", "20", "later");
+                    "1020.00", findAccountLine(comparison, "account-01").get("expectedBalance"));
+            rig.transfer("account-01", "account-02", "20", "later");
             assertEquals(
                     "1000.00",
-                    findAccountLine(rig.getLedger().compareMonth("2026-01"), "usd-alice")
+                    findAccountLine(rig.getLedger().compareMonth("2026-01"), "account-01")
                             .get("expectedBalance"));
             assertEquals(close, TestRig.await(rig.getLedger().closeMonth("2026-01")));
             assertEquals(
@@ -91,7 +91,7 @@ class ReconciliationTest {
             assertEquals(original, TestRig.await(rig.getLedger().closeMonth("2026-01")));
             assertFailure(
                     rig.getLedger().transfer(
-                            new LedgerService.Transfer("usd-alice", "usd-bob", "1"), "finalized"),
+                            new LedgerService.Transfer("account-01", "account-02", "1"), "finalized"),
                     "CLOCK_REGRESSION");
             assertEquals(
                     0,
@@ -119,8 +119,8 @@ class ReconciliationTest {
                     LedgerFormatting.formatTimestamp(rig.getProperties().getOpeningAt()),
                     10000L);
             TestRig.await(rig.getLedger().closeMonth("2026-09"));
-            rig.transfer("usd-bob", "usd-small", "30", "credit");
-            rig.transfer("usd-small", "usd-alice", "20", "debit");
+            rig.transfer("account-02", "usd-small", "30", "credit");
+            rig.transfer("usd-small", "account-01", "20", "debit");
             Map<String, Object> comparison = rig.getLedger().compareMonth("2026-09");
             assertEquals("OK", comparison.get("status"));
             Map<String, Object> account = findAccountLine(comparison, "usd-small");
@@ -153,8 +153,8 @@ class ReconciliationTest {
             assertTrue(((List<?>) before.get("accounts")).isEmpty());
             Map<String, Object> january = TestRig.await(rig.getLedger().closeMonth("2026-01"));
             assertFalse(((List<?>) january.get("accounts")).toString().contains("usd-later"));
-            assertEquals("1000.00", findAccountLine(january, "usd-alice").get("recordedBalance"));
-            assertEquals("0", findAccountLine(january, "usd-alice").get("lastIncludedSequence"));
+            assertEquals("1000.00", findAccountLine(january, "account-01").get("recordedBalance"));
+            assertEquals("0", findAccountLine(january, "account-01").get("lastIncludedSequence"));
             Map<String, Object> february = TestRig.await(rig.getLedger().closeMonth("2026-02"));
             assertEquals("100.00", findAccountLine(february, "usd-later").get("recordedBalance"));
             assertFailure(rig.getLedger().closeMonth("2026-10"), "INVALID_REQUEST");
@@ -189,23 +189,23 @@ class ReconciliationTest {
             assertTrue(started.await(2, TimeUnit.SECONDS));
             var pending =
                     rig.getLedger().transfer(
-                            new LedgerService.Transfer("usd-alice", "usd-bob", "10"), "key");
+                            new LedgerService.Transfer("account-01", "account-02", "10"), "key");
             clock.set("2026-02-01T00:00:00Z");
             release.countDown();
             TestRig.await(blocking);
             Map<String, Object> result = TestRig.await(pending);
             assertEquals("2026-02-01T00:00:00.000000000Z", result.get("postedAt"));
             Map<String, Object> close = TestRig.await(rig.getLedger().closeMonth("2026-01"));
-            assertEquals("1000.00", findAccountLine(close, "usd-alice").get("recordedBalance"));
+            assertEquals("1000.00", findAccountLine(close, "account-01").get("recordedBalance"));
             clock.set("2026-01-31T23:59:59Z");
             assertFailure(
                     rig.getLedger().transfer(
-                            new LedgerService.Transfer("usd-alice", "usd-bob", "1"), "backward"),
+                            new LedgerService.Transfer("account-01", "account-02", "1"), "backward"),
                     "CLOCK_REGRESSION");
             assertEquals(
                     1, rig.getJdbc().queryForObject("SELECT COUNT(*) FROM transactions", Integer.class));
             clock.set("2026-02-01T00:00:00Z");
-            Map<String, Object> next = rig.transfer("usd-alice", "usd-bob", "1", "backward");
+            Map<String, Object> next = rig.transfer("account-01", "account-02", "1", "backward");
             assertEquals("2", next.get("sequence"));
         }
     }
@@ -219,14 +219,14 @@ class ReconciliationTest {
     void reconcile_consistentFaultyPosting_independentCheckDetectsError() throws Exception {
         for (String kind : List.of("SAME", "FX", "REVERSAL")) {
             try (TestRig rig = new TestRig(temporaryDirectory.resolve(kind + ".db"))) {
-                String destination = kind.equals("FX") ? "sgd-bob" : "usd-bob";
-                Map<String, Object> result = rig.transfer("usd-alice", destination, "1", "key");
+                String destination = kind.equals("FX") ? "account-20" : "account-02";
+                Map<String, Object> result = rig.transfer("account-01", destination, "1", "key");
                 if (kind.equals("REVERSAL")) {
                     result =
                             TestRig.await(
                                     rig.getLedger().reverse(
                                             (String) result.get("transactionId"), "reverse"));
-                    destination = "usd-alice";
+                    destination = "account-01";
                 }
                 rig.getJdbc().execute("DROP TRIGGER transactions_no_update");
                 rig.getJdbc().execute("DROP TRIGGER observations_no_update");
@@ -264,25 +264,25 @@ class ReconciliationTest {
                         new LedgerProperties(),
                         clock,
                         id -> {})) {
-            rig.transfer("usd-alice", "usd-bob", "20", "january");
+            rig.transfer("account-01", "account-02", "20", "january");
             rig.getJdbc().execute("DROP TRIGGER observations_no_update");
             rig.getJdbc().update(
                     "UPDATE balance_observations SET balance_minor=balance_minor+100 "
-                            + "WHERE account_id='usd-alice'");
+                            + "WHERE account_id='account-01'");
             clock.set("2026-02-01T00:00:00Z");
             Map<String, Object> close = TestRig.await(rig.getLedger().closeMonth("2026-01"));
             assertEquals("DISCREPANCIES", close.get("status"));
             assertEquals(
                     0,
                     rig.getJdbc().queryForObject("SELECT successful FROM month_closes", Integer.class));
-            rig.transfer("usd-bob", "usd-alice", "1", "later");
+            rig.transfer("account-02", "account-01", "1", "later");
             rig.getJdbc().update(
-                    "UPDATE accounts SET balance_minor=balance_minor+100 WHERE id='usd-alice'");
+                    "UPDATE accounts SET balance_minor=balance_minor+100 WHERE id='account-01'");
             Map<String, Object> comparison = rig.getLedger().compareMonth("2026-01");
             assertEquals("DISCREPANCIES", comparison.get("status"));
-            assertEquals("0.00", findAccountLine(comparison, "usd-alice").get("difference"));
+            assertEquals("0.00", findAccountLine(comparison, "account-01").get("difference"));
             assertEquals(
-                    "1.00", findAccountLine(comparison, "usd-alice").get("baselineDifference"));
+                    "1.00", findAccountLine(comparison, "account-01").get("baselineDifference"));
             assertEquals(close, TestRig.await(rig.getLedger().closeMonth("2026-01")));
         }
     }

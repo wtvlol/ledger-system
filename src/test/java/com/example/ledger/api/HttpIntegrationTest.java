@@ -66,24 +66,25 @@ class HttpIntegrationTest {
                     post(
                             base + "/transactions",
                             "key",
-                            "{\"sourceAccount\":\"usd-alice\",\"destinationAccount\":\"usd-bob\",\"amount\":\"10\"}");
+                            "{\"sourceAccount\":\"account-01\","
+                                    + "\"destinationAccount\":\"account-02\",\"amount\":\"10\"}");
             assertEquals(200, result.statusCode(), result.body());
             String id = json.readTree(result.body()).get("transactionId").asString();
             HttpResponse<String> retry =
                     post(
                             base + "/transactions",
                             "key",
-                            "{\"sourceAccount\":\"usd-alice\","
-                                    + "\"destinationAccount\":\"usd-bob\",\"amount\":\"10.00\"}");
+                            "{\"sourceAccount\":\"account-01\","
+                                    + "\"destinationAccount\":\"account-02\",\"amount\":\"10.00\"}");
             assertEquals(json.readTree(result.body()), json.readTree(retry.body()));
             assertEquals(
                     "990.00",
-                    json.readTree(get(base + "/accounts/usd-alice").body())
+                    json.readTree(get(base + "/accounts/account-01").body())
                             .get("balance")
                             .asString());
             assertEquals(
                     1,
-                    json.readTree(get(base + "/accounts/usd-alice/transactions").body())
+                    json.readTree(get(base + "/accounts/account-01/transactions").body())
                             .get("items")
                             .size());
             assertEquals(
@@ -91,24 +92,24 @@ class HttpIntegrationTest {
                     post(
                                     base + "/transactions",
                                     "number",
-                                    "{\"sourceAccount\":\"usd-alice\","
-                                            + "\"destinationAccount\":\"usd-bob\",\"amount\":10}")
+                                    "{\"sourceAccount\":\"account-01\","
+                                            + "\"destinationAccount\":\"account-02\",\"amount\":10}")
                             .statusCode());
             assertEquals(
                     400,
                     post(
                                     base + "/transactions",
                                     null,
-                                    "{\"sourceAccount\":\"usd-alice\","
-                                            + "\"destinationAccount\":\"usd-bob\",\"amount\":\"1\"}")
+                                    "{\"sourceAccount\":\"account-01\","
+                                            + "\"destinationAccount\":\"account-02\",\"amount\":\"1\"}")
                             .statusCode());
             assertEquals(
-                    400, get(base + "/accounts/usd-alice/transactions?limit=bad").statusCode());
+                    400, get(base + "/accounts/account-01/transactions?limit=bad").statusCode());
             assertEquals(404, get(base + "/accounts/absent").statusCode());
             HttpResponse<String> missing = get(base + "/missing-resource.js");
             assertEquals(404, missing.statusCode());
             assertEquals("NOT_POSTED", json.readTree(missing.body()).get("outcome").asString());
-            assertEquals(405, post(base + "/accounts/usd-alice", null, null).statusCode());
+            assertEquals(405, post(base + "/accounts/account-01", null, null).statusCode());
             assertEquals(
                     200,
                     post(base + "/transactions/" + id + "/reversal", "reverse", null).statusCode());
@@ -142,7 +143,7 @@ class HttpIntegrationTest {
         try (ConfigurableApplicationContext context = runWeb(true)) {
             String base = getBaseUrl(context);
             String body =
-                    "{\"sourceAccount\":\"usd-alice\",\"destinationAccount\":\"usd-bob\",\"amount\":\"1\"}";
+                    "{\"sourceAccount\":\"account-01\",\"destinationAccount\":\"account-02\",\"amount\":\"1\"}";
             var pending =
                     client.sendAsync(
                             request(base + "/transactions", "timeout-key", body),
@@ -158,7 +159,7 @@ class HttpIntegrationTest {
                 assertEquals("UNKNOWN", json.readTree(timeout.body()).get("outcome").asString());
                 assertEquals(
                         "1000.00",
-                        json.readTree(get(base + "/accounts/usd-alice").body())
+                        json.readTree(get(base + "/accounts/account-01").body())
                                 .get("balance")
                                 .asString());
                 BlockingConfiguration.release.countDown();
@@ -166,7 +167,7 @@ class HttpIntegrationTest {
                 assertEquals(200, replay.statusCode(), replay.body());
                 assertEquals(
                         1,
-                        json.readTree(get(base + "/accounts/usd-alice/transactions").body())
+                        json.readTree(get(base + "/accounts/account-01/transactions").body())
                                 .get("items")
                                 .size());
             } finally {

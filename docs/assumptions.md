@@ -26,8 +26,14 @@ details the assignment leaves open.
 - The supported currencies are USD, EUR, JPY, GBP, CNY, CHF, AUD, CAD, HKD, SGD,
   INR, KRW, SEK, MXN, and NZD. JPY and KRW have zero decimal places; the other
   supported currencies have two.
-- Every currency has Alice and Bob accounts, named `<currency>-alice` and
-  `<currency>-bob` using lowercase currency codes: 30 accounts in a new database.
+- A fresh database has 30 currency accounts with neutral IDs `account-01` through
+  `account-30`. User identity and currency are separate fields; IDs are not
+  usernames. Existing ledger IDs remain immutable on ordinary startup.
+- A user can hold multiple currencies, similar to a YouTrip-style wallet. Each
+  currency has its own exact balance and history under the same user identity.
+  This is a modeling assumption, not a claim to implement all YouTrip features.
+- Fresh initialization seeds opening funds and demo rates, with no transaction
+  history, successful-request keys, balance observations, or monthly reports.
 - Alice and Bob are explicit users, each owning 15 separate currency accounts.
   SQLite stores ownership rather than deriving it from account names during
   requests. The chosen model permits one account per user/currency. Currency

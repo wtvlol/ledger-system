@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -50,7 +49,7 @@ class ExchangeRateTest {
             rig.getJdbc().update(
                     "UPDATE exchange_rates SET rate='1.234567890123' "
                             + "WHERE source_currency='USD' AND destination_currency='SGD'");
-            Map<String, Object> result = rig.transfer("usd-alice", "sgd-bob", "10", "stored-quote");
+            Map<String, Object> result = rig.transfer("account-01", "account-20", "10", "stored-quote");
             assertEquals("1.234567890123", result.get("rate"));
             assertEquals("12.35", result.get("creditAmount"));
             rig.getJdbc().update(
@@ -60,7 +59,7 @@ class ExchangeRateTest {
         try (TestRig rig = new TestRig(file)) {
             assertEquals("1.234567890123", ExchangeRateRepository.getRate(rig.getJdbc(), "USD", "SGD"));
             assertEquals(209, ExchangeRateRepository.getRates(rig.getJdbc()).size());
-            assertEquals("990.00", rig.getLedger().getBalance("usd-alice").get("balance"));
+            assertEquals("990.00", rig.getLedger().getBalance("account-01").get("balance"));
             assertEquals("OK", rig.getLedger().checkIntegrity().get("status"));
         }
     }
@@ -94,7 +93,7 @@ class ExchangeRateTest {
                     "UPDATE exchange_rates SET rate='1.250000' "
                             + "WHERE source_currency='USD' AND destination_currency='SGD'");
             LedgerService ledger = new LedgerService(database, queue, properties, clock, id -> {});
-            assertEquals("1000.00", ledger.getBalance("usd-alice").get("balance"));
+            assertEquals("1000.00", ledger.getBalance("account-01").get("balance"));
         }
     }
 
@@ -108,9 +107,12 @@ class ExchangeRateTest {
         try (TestRig rig = new TestRig(temporaryDirectory.resolve("currencies.db"))) {
             TestRig.await(rig.getLedger().closeMonth("2026-09"));
             for (LedgerCurrency currency : LedgerCurrency.values()) {
-                String destination = currency.name().toLowerCase(Locale.ROOT) + "-bob";
+                String destination = LedgerRepository.getAccounts(rig.getJdbc()).stream()
+                        .filter(account -> account.userId().equals("bob")
+                                && account.currency().equals(currency.name()))
+                        .findFirst().orElseThrow().id();
                 Map<String, Object> original =
-                        rig.transfer("usd-alice", destination, "10", currency.name());
+                        rig.transfer("account-01", destination, "10", currency.name());
                 assertEquals(currency.name(), original.get("destinationCurrency"));
                 assertEquals("OK", rig.getLedger().checkIntegrity().get("status"));
                 assertEquals("OK", rig.getLedger().compareMonth("2026-09").get("status"));
@@ -119,7 +121,10 @@ class ExchangeRateTest {
                                 (String) original.get("transactionId"), "reverse-" + currency));
                 String expected = currency.getMinorUnitDigits() == 0 ? "500" : "500.00";
                 assertEquals(expected, rig.getLedger().getBalance(destination).get("balance"));
-                String source = currency.name().toLowerCase(Locale.ROOT) + "-alice";
+                String source = LedgerRepository.getAccounts(rig.getJdbc()).stream()
+                        .filter(account -> account.userId().equals("alice")
+                                && account.currency().equals(currency.name()))
+                        .findFirst().orElseThrow().id();
                 Map<String, Object> sameCurrency =
                         rig.transfer(source, destination, "1.00", "same-" + currency);
                 assertEquals(sameCurrency.get("debitAmount"), sameCurrency.get("creditAmount"));
@@ -140,21 +145,21 @@ class ExchangeRateTest {
     @Test
     void transfer_missingAndInvalidRates_noFinancialEffectAndSameKeyMayRetry() throws Exception {
         try (TestRig rig = new TestRig(temporaryDirectory.resolve("missing.db"))) {
-            Map<String, Object> original = rig.transfer("usd-alice", "sgd-bob", "1", "original");
+            Map<String, Object> original = rig.transfer("account-01", "account-20", "1", "original");
             rig.getJdbc().update(
                     "DELETE FROM exchange_rates WHERE source_currency='USD' "
                             + "AND destination_currency='SGD'");
-            assertEquals(original, rig.transfer("usd-alice", "sgd-bob", "1.00", "original"));
+            assertEquals(original, rig.transfer("account-01", "account-20", "1.00", "original"));
             assertFailure(
                     rig.getLedger().transfer(
-                            new LedgerService.Transfer("usd-alice", "sgd-bob", "1"), "retry"),
+                            new LedgerService.Transfer("account-01", "account-20", "1"), "retry"),
                     "MISSING_FX_RATE");
             rig.getJdbc().update(
                     "INSERT INTO exchange_rates VALUES ('USD','SGD','1.1234567890123',?)",
                     LedgerFormatting.formatTimestamp(rig.getClock().instant()));
             assertFailure(
                     rig.getLedger().transfer(
-                            new LedgerService.Transfer("usd-alice", "sgd-bob", "1"), "retry"),
+                            new LedgerService.Transfer("account-01", "account-20", "1"), "retry"),
                     "INVALID_FX_RATE");
             assertEquals(
                     1, rig.getJdbc().queryForObject("SELECT COUNT(*) FROM transactions", Integer.class));
@@ -162,13 +167,13 @@ class ExchangeRateTest {
                     1,
                     rig.getJdbc().queryForObject(
                             "SELECT COUNT(*) FROM successful_requests", Integer.class));
-            assertEquals("999.00", rig.getLedger().getBalance("usd-alice").get("balance"));
+            assertEquals("999.00", rig.getLedger().getBalance("account-01").get("balance"));
             TestRig.await(rig.getLedger().reverse((String) original.get("transactionId"), "reverse"));
             rig.getJdbc().update(
                     "UPDATE exchange_rates SET rate='1.250000' "
                             + "WHERE source_currency='USD' AND destination_currency='SGD'");
             assertEquals(
-                    "1.25", rig.transfer("usd-alice", "sgd-bob", "1", "retry").get("creditAmount"));
+                    "1.25", rig.transfer("account-01", "account-20", "1", "retry").get("creditAmount"));
             assertEquals("OK", rig.getLedger().checkIntegrity().get("status"));
         }
     }
@@ -196,7 +201,7 @@ class ExchangeRateTest {
             assertTrue(started.await(2, TimeUnit.SECONDS));
             var transfer =
                     rig.getLedger().transfer(
-                            new LedgerService.Transfer("usd-alice", "sgd-bob", "10"), "queued");
+                            new LedgerService.Transfer("account-01", "account-20", "10"), "queued");
             try {
                 rig.getJdbc().update(
                         "UPDATE exchange_rates SET rate='1.200000' "

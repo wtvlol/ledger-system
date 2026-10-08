@@ -56,20 +56,30 @@ current market quotations.
 | MXN | Mexican peso | 2 | 17.000000000000 |
 | NZD | New Zealand dollar | 2 | 1.650000000000 |
 
-Each currency has `<lowercase-code>-alice` and `<lowercase-code>-bob` accounts,
-with 1000 and 500 major units respectively: `usd-alice` starts at `1000.00`,
-`jpy-alice` at `1000`. All 30 accounts in a new database open at
+A fresh database has users `alice` and `bob`, each holding 15 currencies. Account
+IDs are neutral identifiers `account-01` through `account-30`; ownership and
+currency are separate database fields. Alice opens with 1000 major units and Bob
+with 500 in each currency: `account-01` (Alice, USD) starts at `1000.00`,
+`account-05` (Alice, JPY) at `1000`. All 30 accounts in a new database open at
 `2026-01-01T00:00:00Z`, configurable before initial creation.
 Opening balances, currencies, and their effective times remain immutable.
 
 Alice and Bob are explicit users in SQLite's `users` table. Each has 15 currency
 accounts linked by `accounts.user_id`, with one account per user/currency.
-Ownership is immutable. For example, `usd-alice`, `sgd-alice`, and `jpy-alice`
+Ownership is immutable. For example, `account-01`, `account-19`, and `account-05`
 are three holdings belonging to Alice, each with its own exact balance and history.
 The frontend groups holdings and account choices by user. A transfer from
-`usd-alice` to `sgd-alice` converts Alice's own funds using the stored FX rate;
+`account-01` to `account-19` converts Alice's own funds using the stored FX rate;
 a transfer to Bob's account moves funds between users. Unlike currencies are
 never added into one user balance. These identities do not provide authentication.
+The holdings model resembles a
+YouTrip-style wallet: one user has multiple separate currency balances. This
+analogy describes the demo model and does not claim parity with YouTrip features.
+A fresh database contains opening funds and rates, with no transactions, retry
+records, observations, or saved month reports. Existing databases retain their
+account IDs and financial records on ordinary startup; changing the seed does
+not rename or erase an existing ledger. Use `GET /users` to discover account IDs
+rather than infer ownership from them.
 
 SQLite's `currencies` table stores the 15 codes, names, and minor-unit precision.
 The separate `exchange_rates` table contains 210 directed pairs: source currency,
@@ -128,7 +138,7 @@ bodies contain exactly the three fields below; amounts must be strings.
 curl -sS http://127.0.0.1:8080/transactions \
   -H 'Content-Type: application/json' \
   -H 'Idempotency-Key: example-transfer-1' \
-  -d '{"sourceAccount":"usd-alice","destinationAccount":"sgd-bob","amount":"10.00"}'
+  -d '{"sourceAccount":"account-01","destinationAccount":"account-20","amount":"10.00"}'
 ```
 
 The committed result includes `transactionId`, `confirmation: "COMMITTED"`,

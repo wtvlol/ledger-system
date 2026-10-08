@@ -166,7 +166,7 @@ async function refreshAccounts() {
       for (const account of user.accounts) {
         const option = document.createElement('option');
         option.value = account.id;
-        option.textContent = `${account.currency} (${account.id})`;
+        option.textContent = account.currency;
         group.append(option);
       }
       control.append(group);

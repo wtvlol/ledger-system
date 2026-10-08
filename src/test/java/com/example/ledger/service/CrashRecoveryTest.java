@@ -67,15 +67,15 @@ class CrashRecoveryTest {
         try (TestRig restarted = new TestRig(database)) {
             assertEquals(
                     stage.equals("committed") ? "999.00" : "1000.00",
-                    restarted.getLedger().getBalance("usd-alice").get("balance"));
+                    restarted.getLedger().getBalance("account-01").get("balance"));
             Map<String, Object> result =
-                    restarted.transfer("usd-alice", "usd-bob", "1.00", "crash-key");
-            assertEquals(result, restarted.transfer("usd-alice", "usd-bob", "1", "crash-key"));
+                    restarted.transfer("account-01", "account-02", "1.00", "crash-key");
+            assertEquals(result, restarted.transfer("account-01", "account-02", "1", "crash-key"));
             assertEquals(
                     1,
                     restarted.getJdbc().queryForObject(
                             "SELECT COUNT(*) FROM transactions", Integer.class));
-            assertEquals("999.00", restarted.getLedger().getBalance("usd-alice").get("balance"));
+            assertEquals("999.00", restarted.getLedger().getBalance("account-01").get("balance"));
             assertEquals("OK", restarted.getLedger().checkIntegrity().get("status"));
         }
     }

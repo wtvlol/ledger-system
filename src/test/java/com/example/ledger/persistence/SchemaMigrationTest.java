@@ -141,7 +141,7 @@ class SchemaMigrationTest {
             assertEquals(
                     LedgerFormatting.formatTimestamp(rig.getClock().instant()),
                     rig.getJdbc().queryForObject(
-                            "SELECT opening_at FROM accounts WHERE id='jpy-alice'", String.class));
+                            "SELECT opening_at FROM accounts WHERE id='account-05'", String.class));
             Map<String, Object> replay =
                     rig.transfer("usd-alice", "usd-bob", "10.00", "legacy-key");
             assertEquals("legacy-transfer", replay.get("transactionId"));
@@ -155,7 +155,7 @@ class SchemaMigrationTest {
             assertEquals(4, ((List<?>) rig.getLedger().compareMonth("2026-01").get("accounts")).size());
             Map<String, Object> february = TestRig.await(rig.getLedger().closeMonth("2026-02"));
             assertEquals(4, ((List<?>) february.get("accounts")).size());
-            Map<String, Object> next = rig.transfer("jpy-alice", "krw-bob", "10", "new-currency");
+            Map<String, Object> next = rig.transfer("account-05", "account-24", "10", "new-currency");
             assertEquals("101", next.get("sequence"));
             assertEquals("89", next.get("creditAmount"));
             assertEquals("OK", rig.getLedger().checkIntegrity().get("status"));
@@ -174,7 +174,7 @@ class SchemaMigrationTest {
         }
         try (TestRig rig = new TestRig(file)) {
             assertEquals(30, rig.getLedger().listAccounts().size());
-            assertEquals("990", rig.getLedger().getBalance("jpy-alice").get("balance"));
+            assertEquals("990", rig.getLedger().getBalance("account-05").get("balance"));
             assertEquals(originalClose, TestRig.await(rig.getLedger().closeMonth("2026-01")));
         }
     }
