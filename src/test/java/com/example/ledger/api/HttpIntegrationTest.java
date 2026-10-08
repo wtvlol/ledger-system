@@ -11,6 +11,7 @@ import java.net.http.HttpResponse;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
@@ -22,6 +23,7 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.example.ledger.LedgerApplication;
 import com.example.ledger.concurrency.WriteQueue;
@@ -128,6 +130,68 @@ class HttpIntegrationTest {
                     json.readTree(get(base + "/configuration").body())
                             .get("roundingPolicy")
                             .asString());
+        }
+    }
+
+    /**
+     * Verifies malformed or ambiguous JSON cannot post funds or reserve an idempotency key.
+     *
+     * @throws Exception if the isolated HTTP server, request exchange, or cleanup fails.
+     */
+    @Test
+    void transfer_ambiguousOrMalformedJson_rejectedWithoutFinancialEffects() throws Exception {
+        try (ConfigurableApplicationContext context = runWeb(false)) {
+            String base = getBaseUrl(context);
+            String valid = "{\"sourceAccount\":\"account-01\","
+                    + "\"destinationAccount\":\"account-02\",\"amount\":\"1\"}";
+            List<String> bodies = List.of(
+                    valid.replace("\"amount\":\"1\"", "\"amount\":\"1\",\"amount\":\"2\""),
+                    valid + " {}", valid + " trailing", "null", "[]", "{}",
+                    valid.replace("\"amount\":\"1\"", "\"amount\":1"),
+                    valid.replace("\"amount\":\"1\"", "\"amount\":null"),
+                    valid.replace("\"amount\":\"1\"", "\"amount\":\"1\",\"extra\":\"ignored\""));
+            for (String body : bodies) {
+                HttpResponse<String> response = post(base + "/transactions", "invalid-json", body);
+                assertEquals(400, response.statusCode(), response.body());
+                assertEquals("NOT_POSTED", json.readTree(response.body()).get("outcome").asString());
+            }
+            JdbcTemplate jdbc = new JdbcTemplate(context.getBean(SqliteDatabase.class).getReader());
+            assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM transactions", Integer.class));
+            assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM successful_requests", Integer.class));
+            assertEquals(0, jdbc.queryForObject("SELECT COUNT(*) FROM balance_observations", Integer.class));
+            assertEquals(0, jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM accounts WHERE balance_minor<>opening_minor", Integer.class));
+            assertEquals(200, post(base + "/transactions", "invalid-json", valid).statusCode());
+        }
+    }
+
+    /**
+     * Verifies a supplied reversal body is rejected rather than silently posting a full reversal.
+     *
+     * @throws Exception if the isolated server, transaction exchange, or cleanup fails.
+     */
+    @Test
+    void reverse_unexpectedBody_rejectedBeforeReversingOriginalTransfer() throws Exception {
+        try (ConfigurableApplicationContext context = runWeb(false)) {
+            String base = getBaseUrl(context);
+            HttpResponse<String> transfer = post(base + "/transactions", "original",
+                    "{\"sourceAccount\":\"account-01\","
+                            + "\"destinationAccount\":\"account-02\",\"amount\":\"10\"}");
+            assertEquals(200, transfer.statusCode(), transfer.body());
+            String reversalPath = base + "/transactions/"
+                    + json.readTree(transfer.body()).get("transactionId").asString() + "/reversal";
+            for (String body : List.of("{\"amount\":\"0.01\"}", "{}", "null", "invalid")) {
+                HttpResponse<String> rejected = post(reversalPath, "reverse", body);
+                assertEquals(400, rejected.statusCode(), rejected.body());
+                assertEquals("NOT_POSTED", json.readTree(rejected.body()).get("outcome").asString());
+            }
+            assertEquals("990.00", json.readTree(get(base + "/accounts/account-01").body())
+                    .get("balance").asString());
+            assertEquals(1, json.readTree(get(base + "/accounts/account-01/transactions").body())
+                    .get("items").size());
+            assertEquals(200, post(reversalPath, "reverse", null).statusCode());
+            assertEquals("1000.00", json.readTree(get(base + "/accounts/account-01").body())
+                    .get("balance").asString());
         }
     }
 

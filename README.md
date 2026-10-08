@@ -9,9 +9,10 @@ scope limits, and defaults used to interpret the assignment.
 
 ## Run
 
-Use Java 17 or newer supported by Spring Boot 4.1.1 and Gradle 9.8.0. Development
-verification used Java 25. Node.js 22.13 or newer and npm are needed for the
-JavaScript checks. They are not needed to run the application.
+Use JDK 21 or newer for building and verification: the pinned Checkstyle version
+requires Java 21. Application bytecode targets Java 17, so the packaged app can
+run on Java 17 or newer. Node.js 22.13 or newer and npm are needed for the
+JavaScript checks. The packaged app needs Java and a modern browser.
 
 ```sh
 ./gradlew bootRun
@@ -30,6 +31,9 @@ java --enable-native-access=ALL-UNNAMED -jar build/libs/ledger-system-0.1.0.jar
 installs locked development-only npm dependencies with lifecycle scripts disabled.
 The Gradle Wrapper downloads Gradle; initial builds need internet access.
 The browser uses native modules with no frontend framework or asset build.
+
+Follow the [reviewer walkthrough](docs/reviewer-guide.md) for a short demo of
+transfers, retries, reversals, and reconciliation in an isolated database.
 
 ## Demo data
 
@@ -72,9 +76,8 @@ The frontend groups holdings and account choices by user. A transfer from
 `account-01` to `account-19` converts Alice's own funds using the stored FX rate;
 a transfer to Bob's account moves funds between users. Unlike currencies are
 never added into one user balance. These identities do not provide authentication.
-The holdings model resembles a
-YouTrip-style wallet: one user has multiple separate currency balances. This
-analogy describes the demo model and does not claim parity with YouTrip features.
+The holdings model resembles a YouTrip-style wallet: one user has multiple
+separate currency balances.
 A fresh database contains opening funds and rates, with no transactions, retry
 records, observations, or saved month reports. Existing databases retain their
 account IDs and financial records on ordinary startup; changing the seed does
@@ -133,6 +136,9 @@ Financial requests require an `Idempotency-Key` header. Keys contain 1–128
 printable ASCII characters without spaces. Account identifiers use letters,
 digits, underscores, or hyphens and contain at most 64 characters. Transfer
 bodies contain exactly the three fields below; amounts must be strings.
+Malformed JSON, duplicate field names, and content after the JSON object are
+rejected. Reversals take no body; a supplied body is rejected so an amount cannot
+be silently ignored while posting a full reversal.
 
 ```sh
 curl -sS http://127.0.0.1:8080/transactions \
@@ -345,6 +351,9 @@ See [assumptions and design decisions](docs/assumptions.md),
 [acceptance-test mapping](docs/test-coverage.md), and
 [coding standards](docs/coding-standards.md). JUnit reports are generated under
 `build/reports/tests/test/`; Checkstyle reports under `build/reports/checkstyle/`.
+The [verification workflow](.github/workflows/verify.yml) runs checks and packaging
+on Java 21 and 25 for pushes and pull requests to `main`. Action versions are
+pinned to commits, and the Gradle distribution has a SHA-256 checksum.
 
 This is one local application instance with seeded accounts, SQLite demo rates, no fees,
 no authentication, no account creation/deposits, no distributed/durable queue, no

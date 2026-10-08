@@ -30,7 +30,7 @@ public final class LedgerRepository {
      * Stores an immutable transfer or reversal and its conversion details.
      *
      * @param sequence Persistent monotonically increasing posting sequence.
-     * @param id Account identifier whose recorded balance or history is requested.
+     * @param id Immutable identifier of this transfer or reversal.
      * @param kind Posting category, either {@code TRANSFER} or {@code REVERSAL}.
      * @param source Identifier of the posted source account.
      * @param destination Identifier of the posted destination account.
@@ -105,7 +105,7 @@ public final class LedgerRepository {
      *
      * @param result Result set positioned at the committed posting row.
      * @return Posting represented by the current database result row.
-     * @throws SQLException if SQLite cannot open, query, or verify the required connection settings.
+     * @throws SQLException if a posting field cannot be read from the current result row.
      */
     private static Posting posting(ResultSet result) throws SQLException {
         return new Posting(

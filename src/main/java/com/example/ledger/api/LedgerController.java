@@ -131,13 +131,18 @@ public final class LedgerController {
      *
      * @param id Identifier of the original transfer to reverse.
      * @param key Caller-supplied idempotency key retained only after a successful commit.
+     * @param body Optional raw request body; reversals require no body and reject supplied content.
      * @return Deferred exact reversal result or rejection; timeout does not cancel the worker.
-     * @throws LedgerException if the asynchronous waiter limit is reached before queue admission.
+     * @throws LedgerException if a body is supplied or the waiter limit is reached before queue admission.
      */
     @PostMapping("/transactions/{id}/reversal")
     public DeferredResult<Map<String, Object>> reverse(
             @PathVariable String id,
-            @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+            @RequestHeader(value = "Idempotency-Key", required = false) String key,
+            @RequestBody(required = false) String body) {
+        if (body != null && !body.isEmpty()) {
+            throw LedgerException.createInvalid("A full reversal requires no request body");
+        }
         return await(() -> ledger.reverse(id, key));
     }
 

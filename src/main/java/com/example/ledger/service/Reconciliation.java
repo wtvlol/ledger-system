@@ -55,6 +55,11 @@ public final class Reconciliation {
         List<Posting> postings = getPostings(jdbc, boundary);
         Map<String, BigInteger> expectedBalances = calculateExpectedBalances(accounts, postings);
         List<Map<String, Object>> issues = validatePostings(jdbc, accounts, postings);
+        Map<String, Long> lastSequences = new LinkedHashMap<>();
+        for (Posting posting : postings) {
+            lastSequences.put(posting.source(), posting.sequence());
+            lastSequences.put(posting.destination(), posting.sequence());
+        }
         List<Map<String, Object>> balances = new ArrayList<>();
         for (Account account : accounts) {
             balances.add(
@@ -62,7 +67,7 @@ public final class Reconciliation {
                             account,
                             BigInteger.valueOf(account.balance()),
                             expectedBalances.get(account.id()),
-                            0));
+                            lastSequences.getOrDefault(account.id(), 0L)));
         }
         return buildReport(
                 "INTEGRITY",
@@ -70,8 +75,7 @@ public final class Reconciliation {
                 formatTimestamp(clock.instant()),
                 boundary,
                 balances,
-                issues,
-                accounts);
+                issues);
     }
 
     /**
@@ -111,7 +115,7 @@ public final class Reconciliation {
                             observation.sequence()));
         }
         return buildReport(
-                "MONTH_CLOSE", month, cutoff, boundary, balances, issues, eligibleAccounts);
+                "MONTH_CLOSE", month, cutoff, boundary, balances, issues);
     }
 
     /**
@@ -208,8 +212,7 @@ public final class Reconciliation {
                         formatTimestamp(clock.instant()),
                         boundary,
                         rows,
-                        issues,
-                        eligibleAccounts);
+                        issues);
         report.put("monthlyCutoff", saved.cutoff());
         report.put("baselinePostingBoundary", Long.toString(saved.boundary()));
         return report;
@@ -277,11 +280,10 @@ public final class Reconciliation {
      *
      * @param type Report category describing the current, historical, or forward comparison.
      * @param month UTC calendar month in {@code YYYY-MM} form.
-     * @param cutoff Exclusive UTC month-end instant encoded with nine fractional digits.
+     * @param cutoff Exclusive month-end cutoff, or the current report's observation time, encoded in UTC.
      * @param boundary Maximum committed posting sequence included in this read; zero means no postings.
      * @param balances Per-account reconciliation rows containing recorded and expected amounts.
      * @param issues Independently detected posting or historical-baseline discrepancies.
-     * @param accounts Accounts whose opening baselines and currencies participate in the check.
      * @return Report preserving per-account details, currency totals, read boundary, and discrepancy status.
      */
     private static Map<String, Object> buildReport(
@@ -290,8 +292,7 @@ public final class Reconciliation {
             String cutoff,
             long boundary,
             List<Map<String, Object>> balances,
-            List<Map<String, Object>> issues,
-            List<Account> accounts) {
+            List<Map<String, Object>> issues) {
         Map<String, BigInteger> recordedTotals = new LinkedHashMap<>();
         Map<String, BigInteger> expectedTotals = new LinkedHashMap<>();
         for (Map<String, Object> line : balances) {

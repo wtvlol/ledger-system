@@ -26,6 +26,7 @@ In this document, **must** identifies required behavior. Defaults and scope assu
 - Each user must be able to hold multiple currencies through separate currency accounts. Persist explicit user identities and account ownership; do not infer ownership from an account name at runtime. The demo has Alice and Bob, each with one account for every supported currency. Enforce one account per user/currency, non-null owner foreign keys, and immutable ownership. This is a holdings model; authentication and user/account creation remain outside scope.
 - Fresh databases must use neutral account IDs separate from user identities and currency fields. Demo usernames are `alice` and `bob`; account IDs must not be treated as usernames. Initialize only opening funds and rate fixtures; new ledgers start with empty transaction, successful-request, observation, and monthly-report tables. Ordinary startup must preserve existing ledger IDs and history.
 - Expose `GET /users` and `GET /users/{id}` with each user's currency accounts and exact balance strings from one consistent committed snapshot. Account responses must include `userId`. The frontend must group holdings and account choices by user, retaining account identity when submitting requests. Do not sum unlike currency balances into one user total.
+- Account selectors must show both user name and currency in the selected option, including when collapsed, so two users holding the same currency remain distinguishable.
 - Allow FX transfers between two different currency accounts belonging to the same user, using the existing queue, exact FX, idempotency, reversal, and reconciliation rules. Continue rejecting transfers to the same account.
 - Migrate schema versions 1 and 2 atomically to version 3, associating existing `<currency>-alice` and `<currency>-bob` accounts with their respective users. Preserve all account identities, balances, effective openings, postings, keys, rates, observations, snapshots, close reports, and posting sequences. Reject migration of an unfamiliar ownership pattern rather than guess an owner. Version 2 migration must not add opening funds or reset rates; version 3 restart must not reseed users or accounts.
 - The demo must support USD, EUR, JPY, GBP, CNY, CHF, AUD, CAD, HKD, SGD, INR, KRW, SEK, MXN, and NZD. JPY and KRW have zero decimal places; the other supported currencies have two. The selection follows the 15 highest currency turnover shares in the [BIS April 2025 survey, Table 3](https://www.bis.org/publications/202509-commentary-otc-derivatives.pdf). Popularity here means trading turnover, not the number of individual users.
@@ -50,6 +51,7 @@ History pagination must use a cursor containing the last returned timestamp and 
 ### 3.2 Transfer rules
 
 - Both accounts must exist and must be different accounts.
+- The transfer body must be one JSON object containing exactly the three documented string fields. Reject duplicate field names, malformed JSON, and trailing content without financial changes or a persisted key.
 - The input amount must be positive, valid, and exactly representable in the source currency's minor unit. Reject unsupported precision instead of silently rounding input amounts.
 - Reject a transfer if the source balance is insufficient at execution time, even if the balance appeared sufficient when the request entered the queue.
 - A same-currency transfer must debit and credit exactly the same amount.
@@ -87,6 +89,7 @@ History pagination must use a cursor containing the last returned timestamp and 
 ### 4.2 Reversals and corrections
 
 - A reversal must reference an existing successful transfer and create a new correction transaction.
+- A reversal request must have no body. Reject supplied content before admission rather than ignore an amount or other apparent instruction while posting a full reversal.
 - At most one successful full reversal may be posted for an original transfer, including under concurrent reversal requests with different idempotency keys.
 - A reversal must debit the original destination by its original credited amount and credit the original source by its original debited amount.
 - FX reversals must restore the posted amounts exactly. They must not recalculate conversion using a new rate or rounding policy.
@@ -224,7 +227,7 @@ The eventual application must demonstrate the following scenarios through approp
 | --- | --- | --- |
 | AC-01 | Basic same-currency transfer and queries | One committed transaction; equal debit and credit; correct queried balances and timestamp-ordered history. |
 | AC-02 | Exact arithmetic, including `0.10 + 0.20` | Exact `0.30` throughout input, transport, arithmetic, persistence, and display; repeated operations introduce no drift. |
-| AC-03 | Invalid, zero, negative, excess-precision, unknown-account, self-transfer, and out-of-range requests | Clear rejection with no committed financial effects or persistent failed idempotency record. |
+| AC-03 | Invalid, zero, negative, excess-precision, unknown-account, self-transfer, out-of-range, malformed or ambiguous JSON, and unexpected reversal-body requests | Clear rejection with no committed financial effects or persistent failed idempotency record. |
 | AC-04 | Insufficient source funds | No debit, credit, ledger entry, or persistent idempotency record; the key remains available for retry. |
 | AC-05 | Injected failure after one account update but before commit through the actual queue worker | All balance, history, balance-observation, FX, and successful idempotency changes roll back for checked and unchecked failures. |
 | AC-06 | Concurrent credits and competing debits to the same account | Correct final balances and history; no lost updates or overdraft. From a balance of `100.00`, two concurrent debits of `80.00` produce one success. |

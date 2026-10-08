@@ -51,6 +51,11 @@ class ReconciliationTest {
             assertEquals(
                     "1020.00", findAccountLine(comparison, "account-01").get("expectedBalance"));
             rig.transfer("account-01", "account-02", "20", "later");
+            Map<String, Object> current = rig.getLedger().checkIntegrity();
+            assertEquals("3", current.get("postingBoundary"));
+            assertEquals("3", findAccountLine(current, "account-01").get("lastIncludedSequence"));
+            assertEquals("3", findAccountLine(current, "account-02").get("lastIncludedSequence"));
+            assertEquals("0", findAccountLine(current, "account-03").get("lastIncludedSequence"));
             assertEquals(
                     "1000.00",
                     findAccountLine(rig.getLedger().compareMonth("2026-01"), "account-01")

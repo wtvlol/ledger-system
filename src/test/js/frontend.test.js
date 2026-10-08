@@ -163,7 +163,9 @@ test('user holdings group currencies and submit selected account identities',
       assert.deepEqual(groups[0].children.map((option) => option.value),
         ['account-01', 'account-19']);
       assert.deepEqual(groups[0].children.map((option) => option.textContent),
-        ['USD', 'SGD']);
+        ['Alice — USD', 'Alice — SGD']);
+      assert.deepEqual(groups[1].children.map((option) => option.textContent),
+        ['Bob — USD']);
       getControl('destination').value = 'account-19';
       getControl('transfer-form').dispatch('submit');
       await waitForCondition(() => requests.length === 1 &&

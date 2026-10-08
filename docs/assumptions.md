@@ -31,7 +31,6 @@ details the assignment leaves open.
   usernames. Existing ledger IDs remain immutable on ordinary startup.
 - A user can hold multiple currencies, similar to a YouTrip-style wallet. Each
   currency has its own exact balance and history under the same user identity.
-  This is a modeling assumption, not a claim to implement all YouTrip features.
 - Fresh initialization seeds opening funds and demo rates, with no transaction
   history, successful-request keys, balance observations, or monthly reports.
 - Alice and Bob are explicit users, each owning 15 separate currency accounts.
@@ -67,6 +66,8 @@ details the assignment leaves open.
 - Transfer JSON contains exactly `sourceAccount`, `destinationAccount`, and
   `amount`. All three are strings. Financial requests also require an
   `Idempotency-Key` header. Numeric JSON amounts are rejected to preserve precision.
+- Duplicate JSON field names and trailing content are rejected rather than
+  choosing between ambiguous interpretations of financial input.
 - Account and transaction identifiers contain 1-64 letters, digits, underscores,
   or hyphens. Idempotency keys contain 1-128 printable non-space ASCII characters.
 - Balances, transaction history, resulting balance observations, FX audit details,
@@ -84,6 +85,8 @@ details the assignment leaves open.
 
 - A reversal is a new linked posting referencing an existing successful transfer.
   The original transfer remains in immutable history.
+- Reversals require no request body. Any supplied body is rejected before queue
+  admission, so a partial amount cannot be ignored while posting a full reversal.
 - One transfer permits at most one successful full reversal. Partial reversals
   and reversal of a reversal are excluded. Repeated requests for the same
   successful reversal replay through its idempotency key.

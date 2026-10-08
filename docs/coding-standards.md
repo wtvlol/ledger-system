@@ -42,8 +42,8 @@ boundaries where they matter. Prefer relevant `{@code ...}` and `{@link ...}`
 references over unnecessary tags such as author or version boilerplate.
 The local reference was read from `tp/src/main/java/seedu/address/` files
 `commons/util/ToStringBuilder.java`, `logic/parser/ArgumentTokenizer.java`,
-`commons/util/StringUtil.java`, and `storage/Storage.java` under the user's
-`/Users/keith/Desktop/CS2103T/` workspace; those reference files remain unchanged.
+`commons/util/StringUtil.java`, and `storage/Storage.java` in the user's `tp`
+project; those reference files remain unchanged.
 
 Checkstyle enforces missing method documentation and nonempty applicable parameter,
 return, and declared-exception tags across production and test Java. It also
@@ -104,6 +104,7 @@ reporting a finding. Distinguish source requirements, source recommendations,
 project additions, and design suggestions. Use concrete file/line findings and
 small corrections; do not infer correctness from a style check alone.
 
+Use JDK 21 or newer for verification; the pinned Checkstyle version requires it.
 Run `./gradlew check` after changes. It includes Checkstyle, JUnit tests, ESLint,
 and JavaScript tests. Run `./gradlew bootJar` to build the runnable submission.
 Use `npm run check` to check JavaScript separately. Tool versions are pinned;

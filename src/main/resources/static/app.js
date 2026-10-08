@@ -166,7 +166,7 @@ async function refreshAccounts() {
       for (const account of user.accounts) {
         const option = document.createElement('option');
         option.value = account.id;
-        option.textContent = account.currency;
+        option.textContent = `${user.name} — ${account.currency}`;
         group.append(option);
       }
       control.append(group);
@@ -333,6 +333,5 @@ async function initialize() {
   getElement('month').value = previous.toISOString().slice(0, 7);
   getElement('month').max = getElement('month').value;
   await refreshAccounts();
-
 }
 initialize().catch((error) => showStatus(error.message, true));

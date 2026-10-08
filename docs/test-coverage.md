@@ -11,7 +11,7 @@ these checks; a style check alone does not establish correctness.
 | --- | --- |
 | AC-01 Basic posting and queries | `LedgerIntegrationTest.transfer_exactPostingAndIdempotency_oneEffect`; `HttpIntegrationTest.serve_fullApiAndFrontend_correctResponses`. |
 | AC-02 Exact arithmetic | `MoneyFxTest.parse_equivalentDecimals_equalValuesAndHashes`; repeated `0.10` credits in `LedgerIntegrationTest.transfer_concurrentDebitsAndDuplicates_serialized`; exact string checks in JavaScript tests. |
-| AC-03 Invalid requests | `MoneyFxTest.parse_invalidAmounts_rejected`, `parse_oversizedAndBoundaryAmounts_checked`; `LedgerIntegrationTest.transfer_invalidRequests_noPersistentEffects`; HTTP numeric amount rejection. |
+| AC-03 Invalid requests | `MoneyFxTest.parse_invalidAmounts_rejected`, `parse_oversizedAndBoundaryAmounts_checked`; `LedgerIntegrationTest.transfer_invalidRequests_noPersistentEffects`; `HttpIntegrationTest.transfer_ambiguousOrMalformedJson_rejectedWithoutFinancialEffects`, `reverse_unexpectedBody_rejectedBeforeReversingOriginalTransfer`, including same-key reuse after rejection. |
 | AC-04 Insufficient funds | `LedgerIntegrationTest.transfer_failedRequestThenFunding_sameKeyCanSucceed`. |
 | AC-05 Actual-worker rollback | `LedgerIntegrationTest.transfer_checkedAndUncheckedWorkerFailures_rolledBack`. |
 | AC-06 Simultaneous account activity | `LedgerIntegrationTest.transfer_concurrentDebitsAndDuplicates_serialized`. |
