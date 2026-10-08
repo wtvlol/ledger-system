@@ -27,8 +27,9 @@
     <button id="new-action" hidden>Start a new action</button>
   </section>
   <section>
-    <h2>Accounts</h2><button id="refresh">Refresh balances and rates</button>
-    <div class="scroll"><table><thead><tr><th>Account</th><th>Currency</th><th>Balance</th><th>Opening balance</th></tr></thead><tbody id="accounts"></tbody></table></div>
+    <h2>User currency holdings</h2><button id="refresh">Refresh balances and rates</button>
+    <p class="muted">Each user holds separate balances in multiple currencies. Select any two different accounts to transfer or convert funds.</p>
+    <div class="scroll"><table><thead><tr><th>User</th><th>Currency</th><th>Account</th><th>Balance</th><th>Opening balance</th></tr></thead><tbody id="accounts"></tbody></table></div>
   </section>
   <div class="forms">
     <section>
@@ -39,7 +40,7 @@
         <label>Amount in source currency <input id="amount" type="text" inputmode="decimal" maxlength="64" placeholder="10.00" required></label>
         <button id="transfer-submit" type="submit">Transfer</button>
       </form>
-      <p class="muted">The server calculates currency conversion using the stored demo rate.</p>
+      <p class="muted">Transfer to another user or convert between your own currency accounts. The server calculates conversion using the stored demo rate.</p>
     </section>
     <section>
       <h2>Reverse a transfer</h2>

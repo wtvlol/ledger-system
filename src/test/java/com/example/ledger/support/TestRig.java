@@ -85,6 +85,21 @@ public final class TestRig implements AutoCloseable {
     }
 
     /**
+     * Adds a separately owned account for controlled balance-limit and reconciliation scenarios.
+     *
+     * @param id Unique account identifier also used as this test account's owner identity.
+     * @param currency Supported currency of this test account.
+     * @param opening Nonnegative immutable opening balance in exact minor units.
+     * @param openingAt Effective UTC opening timestamp encoded for the ledger.
+     * @param balance Current recorded balance in exact minor units.
+     */
+    public void createAccount(String id, String currency, long opening, String openingAt, long balance) {
+        jdbc.update("INSERT INTO users VALUES (?,?)", id, id);
+        jdbc.update("INSERT INTO accounts VALUES (?,?,?,?,?,?)",
+                id, currency, opening, openingAt, balance, id);
+    }
+
+    /**
      * Waits for a worker result within the fixture's bounded completion deadline.
      *
      * @param <T> Type of the operation's returned result.

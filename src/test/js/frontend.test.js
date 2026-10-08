@@ -75,9 +75,17 @@ async function withPage(name, respond, verify, respondToRead = null) {
     if (respondToRead && path.includes('/transactions')) {
       return respondToRead(path);
     }
-    const data = path === '/accounts' ? [
-      {id: 'usd-alice', currency: 'USD', balance: '1000.00'},
-      {id: 'usd-bob', currency: 'USD', balance: '500.00'},
+    const data = path === '/users' ? [
+      {id: 'alice', name: 'Alice', accounts: [
+        {id: 'usd-alice', userId: 'alice', currency: 'USD',
+          balance: '1000.00', openingBalance: '1000.00'},
+        {id: 'sgd-alice', userId: 'alice', currency: 'SGD',
+          balance: '1000.00', openingBalance: '1000.00'},
+      ]},
+      {id: 'bob', name: 'Bob', accounts: [
+        {id: 'usd-bob', userId: 'bob', currency: 'USD',
+          balance: '500.00', openingBalance: '500.00'},
+      ]},
     ] : {
       roundingPolicy: 'HALF_EVEN', rateSource: 'SQLITE',
       currencies: [
@@ -137,6 +145,36 @@ test('uncertain transfer retries its original key and exact body', async () => {
     assert.equal(getControl('status').textContent, 'Committed.');
   });
 });
+
+test('user holdings group currencies and submit selected account identities',
+  async () => {
+    await withPage('user-holdings', async () => ({
+      ok: true, json: async () => ({confirmation: 'COMMITTED'}),
+    }), async (getControl, requests) => {
+      const rows = getControl('accounts').children;
+      assert.deepEqual(rows.map((row) =>
+        row.children.map((cell) => cell.textContent)), [
+        ['Alice', 'USD', 'usd-alice', '1000.00', '1000.00'],
+        ['Alice', 'SGD', 'sgd-alice', '1000.00', '1000.00'],
+        ['Bob', 'USD', 'usd-bob', '500.00', '500.00'],
+      ]);
+      const groups = getControl('source').children;
+      assert.deepEqual(groups.map((group) => group.label), ['Alice', 'Bob']);
+      assert.deepEqual(groups[0].children.map((option) => option.value),
+        ['usd-alice', 'sgd-alice']);
+      getControl('destination').value = 'sgd-alice';
+      getControl('transfer-form').dispatch('submit');
+      await waitForCondition(() => requests.length === 1 &&
+        getControl('status').textContent === 'Committed.');
+      assert.deepEqual(JSON.parse(requests[0].options.body), {
+        sourceAccount: 'usd-alice', destinationAccount: 'sgd-alice',
+        amount: '0.10',
+      });
+      await getControl('refresh').dispatch('click');
+      assert.equal(getControl('destination').value, 'sgd-alice');
+      assert.equal(getControl('accounts').children.length, 3);
+    });
+  });
 
 test('confirmed failure permits a new action with a new key', async () => {
   await withPage('rejected', async () => ({

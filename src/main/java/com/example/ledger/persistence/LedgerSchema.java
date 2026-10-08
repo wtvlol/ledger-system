@@ -47,22 +47,31 @@ public final class LedgerSchema {
             JdbcTemplate jdbc = new JdbcTemplate(new SingleConnectionDataSource(connection, true));
             try {
                 String version = getVersion(jdbc);
-                if (version != null && !version.equals("1") && !version.equals("2")) {
+                if (version != null && !List.of("1", "2", "3").contains(version)) {
                     throw new IllegalStateException(
                             "Unsupported schema version; migration required");
                 }
                 applyStatements(jdbc, schema);
+                if (!"3".equals(version)) {
+                    jdbc.update("INSERT INTO users VALUES ('alice','Alice'),('bob','Bob')");
+                }
                 if (version == null || version.equals("1")) {
                     applyStatements(jdbc, readStatements("fx-seed.sql"));
                     if (version != null) {
-                        migrateCurrencyTables(jdbc, schema);
+                        migrateTables(jdbc, schema, true);
                         applyStatements(jdbc, schema);
                     }
                     Instant effectiveTime =
                             version == null ? properties.getOpeningAt() : migrationTime;
                     seedAccounts(jdbc, effectiveTime, version != null);
+                }
+                if ("2".equals(version)) {
+                    migrateTables(jdbc, schema, false);
+                    applyStatements(jdbc, schema);
+                }
+                if (!"3".equals(version)) {
                     jdbc.update(
-                            "INSERT INTO metadata(key,value) VALUES ('schema_version','2') "
+                            "INSERT INTO metadata(key,value) VALUES ('schema_version','3') "
                                     + "ON CONFLICT(key) DO UPDATE SET value=excluded.value");
                 }
                 verifyCurrencies(jdbc);
@@ -107,17 +116,21 @@ public final class LedgerSchema {
     }
 
     /**
-     * Rebuilds legacy currency constraints while preserving records and the sequence high-water mark.
+     * Adds account ownership and rebuilds legacy currency constraints without changing financial records.
      *
      * @param jdbc JDBC operations participating in the caller's database transaction.
      * @param schema Ordered schema declarations used to rebuild legacy tables and constraints.
+     * @param hasLegacyCurrencies Whether the transaction and snapshot currency constraints also need rebuilding.
      */
-    private static void migrateCurrencyTables(JdbcTemplate jdbc, List<String> schema) {
+    private static void migrateTables(
+            JdbcTemplate jdbc, List<String> schema, boolean hasLegacyCurrencies) {
         Long previousSequence =
                 jdbc.queryForObject(
                         "SELECT COALESCE(MAX(seq),0) FROM sqlite_sequence WHERE name='transactions'",
                         Long.class);
-        for (String table : List.of("accounts", "transactions", "monthly_snapshots")) {
+        List<String> tables = hasLegacyCurrencies
+                ? List.of("accounts", "transactions", "monthly_snapshots") : List.of("accounts");
+        for (String table : tables) {
             String declaration =
                     schema.stream()
                             .filter(
@@ -131,7 +144,15 @@ public final class LedgerSchema {
                     declaration.replace(
                             "CREATE TABLE IF NOT EXISTS " + table + " (",
                             "CREATE TABLE " + temporaryTable + " ("));
-            jdbc.execute("INSERT INTO " + temporaryTable + " SELECT * FROM " + table);
+            if (table.equals("accounts")) {
+                jdbc.execute(
+                        "INSERT INTO " + temporaryTable
+                                + " SELECT id,currency,opening_minor,opening_at,balance_minor,"
+                                + " CASE WHEN id=lower(currency)||'-alice' THEN 'alice'"
+                                + " WHEN id=lower(currency)||'-bob' THEN 'bob' END FROM accounts");
+            } else {
+                jdbc.execute("INSERT INTO " + temporaryTable + " SELECT * FROM " + table);
+            }
             jdbc.execute("DROP TABLE " + table);
             jdbc.execute("ALTER TABLE " + temporaryTable + " RENAME TO " + table);
         }
@@ -157,12 +178,13 @@ public final class LedgerSchema {
             for (String owner : List.of("alice", "bob")) {
                 long balance = (owner.equals("alice") ? 1000 : 500) * multiplier;
                 jdbc.update(
-                        "INSERT INTO accounts VALUES (?,?,?,?,?)",
+                        "INSERT INTO accounts VALUES (?,?,?,?,?,?)",
                         currency.name().toLowerCase(Locale.ROOT) + "-" + owner,
                         currency.name(),
                         balance,
                         opened,
-                        balance);
+                        balance,
+                        owner);
             }
         }
     }

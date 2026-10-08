@@ -42,6 +42,7 @@ import com.example.ledger.domain.Money;
 import com.example.ledger.persistence.ExchangeRateRepository;
 import com.example.ledger.persistence.LedgerSchema;
 import com.example.ledger.persistence.SqliteDatabase;
+import com.example.ledger.persistence.UserRepository;
 
 import tools.jackson.databind.json.JsonMapper;
 
@@ -224,6 +225,44 @@ public final class LedgerService {
      */
     public List<Map<String, Object>> listAccounts() {
         return read(() -> getAccounts(reader).stream().map(LedgerViews::getAccount).toList());
+    }
+
+    /**
+     * Returns users and their separate currency balances from one committed snapshot.
+     *
+     * @return User identities with their currency accounts; unlike currencies are never added together.
+     */
+    public List<Map<String, Object>> listUsers() {
+        return read(() -> {
+            List<Account> accounts = getAccounts(reader);
+            return UserRepository.getUsers(reader).stream()
+                    .map(user -> getUserView(user, accounts)).toList();
+        });
+    }
+
+    /**
+     * Returns one user's currency accounts from a consistent committed snapshot.
+     *
+     * @param id User identifier whose distinct currency balances are requested.
+     * @return User identity and its accounts, with exact balances represented as decimal strings.
+     * @throws LedgerException if the user identifier is invalid or unknown.
+     */
+    public Map<String, Object> getUser(String id) {
+        return read(() -> getUserView(UserRepository.getUser(reader, validateIdentifier(id)),
+                getAccounts(reader)));
+    }
+
+    /**
+     * Groups recorded accounts by their explicit immutable user ownership.
+     *
+     * @param user Immutable account owner to display.
+     * @param accounts Accounts read in the same committed snapshot as the user identity.
+     * @return User identity and its currency-specific account views without an aggregate money total.
+     */
+    private static Map<String, Object> getUserView(UserRepository.User user, List<Account> accounts) {
+        return createMap("id", user.id(), "name", user.displayName(), "accounts", accounts.stream()
+                .filter(account -> account.userId().equals(user.id()))
+                .map(LedgerViews::getAccount).toList());
     }
 
     /**

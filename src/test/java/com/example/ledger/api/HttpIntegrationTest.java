@@ -49,6 +49,13 @@ class HttpIntegrationTest {
             assertTrue(get(base + "/").body().contains("Internal ledger"));
             assertTrue(get(base + "/app.js").body().contains("localStorage"));
             assertEquals(30, json.readTree(get(base + "/accounts").body()).size());
+            assertEquals(2, json.readTree(get(base + "/users").body()).size());
+            var alice = json.readTree(get(base + "/users/alice").body());
+            assertEquals("Alice", alice.get("name").asString());
+            assertEquals(15, alice.get("accounts").size());
+            assertEquals("alice", alice.get("accounts").get(0).get("userId").asString());
+            assertEquals(404, get(base + "/users/absent").statusCode());
+            assertEquals(400, get(base + "/users/bad!").statusCode());
             var configuration = json.readTree(get(base + "/configuration").body());
             assertEquals("SQLITE", configuration.get("rateSource").asString());
             assertEquals(15, configuration.get("currencies").size());

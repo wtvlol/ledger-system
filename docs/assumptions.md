@@ -28,6 +28,17 @@ details the assignment leaves open.
   supported currencies have two.
 - Every currency has Alice and Bob accounts, named `<currency>-alice` and
   `<currency>-bob` using lowercase currency codes: 30 accounts in a new database.
+- Alice and Bob are explicit users, each owning 15 separate currency accounts.
+  SQLite stores ownership rather than deriving it from account names during
+  requests. The chosen model permits one account per user/currency. Currency
+  balances and histories remain separate; unlike currencies are not summed.
+- Users and account ownership are immutable. User creation, authentication,
+  authorization, and ownership changes are outside the demo's scope. Ownership
+  labels are ledger data, not access controls.
+- A user can convert funds between their own different currency accounts through
+  the usual transfer endpoint. The same account remains an invalid destination.
+  Cross-user and same-user FX have identical posting, replay, reversal, and
+  reconciliation rules.
 - Alice opens with 1000 major units and Bob with 500 major units in each currency.
   The configured opening instant defaults to `2026-01-01T00:00:00Z` for a new
   database. It is a demo baseline, not evidence of historical external deposits.
@@ -304,13 +315,18 @@ different purposes. Expiry of one does not establish that another has completed.
 ## 12. Existing-database migration
 
 - Schema version 1 contains the earlier USD/SGD ledger. Startup migrates it
-  transactionally to version 2 while preserving original accounts, balances,
+  transactionally to version 3 while preserving original accounts, balances,
   openings, history, successful keys, observations, snapshots, close reports, and
   posting-sequence continuity.
 - Migration adds the remaining 26 accounts with opening times at migration,
   preventing them from contributing funds to earlier monthly reports. It seeds
   the currency catalog and directional quotes for the expanded demo.
-- Migration failure rolls back schema and data changes together. Version 2
+- Schema version 2 already has all 15 currencies. Its ownership migration adds
+  user identities and owner foreign keys without adding accounts or opening funds.
+  Existing `<currency>-alice` and `<currency>-bob` accounts map to Alice and Bob.
+  Unfamiliar account names abort migration rather than guess ownership. Historical
+  financial data, edited/deleted rates, and retained reports remain unchanged.
+- Migration failure rolls back schema and data changes together. Version 3
   restarts do not reinsert edited/deleted quotes or reset account data.
 - Unknown schema versions fail startup and require an explicit migration rather
   than silently creating a replacement ledger.

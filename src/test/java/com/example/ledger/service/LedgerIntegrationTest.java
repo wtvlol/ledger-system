@@ -166,8 +166,7 @@ class LedgerIntegrationTest {
     @Test
     void transfer_concurrentDebitsAndDuplicates_serialized() throws Exception {
         try (TestRig rig = new TestRig(temporaryDirectory.resolve("ledger.db"))) {
-            rig.getJdbc().update(
-                    "INSERT INTO accounts VALUES (?,?,?,?,?)",
+            rig.createAccount(
                     "usd-small",
                     "USD",
                     10000L,
@@ -333,8 +332,7 @@ class LedgerIntegrationTest {
     @Test
     void transfer_destinationOverflowAndLargeTotals_checkedExactly() throws Exception {
         try (TestRig rig = new TestRig(temporaryDirectory.resolve("ledger.db"))) {
-            rig.getJdbc().update(
-                    "INSERT INTO accounts VALUES (?,?,?,?,?)",
+            rig.createAccount(
                     "usd-rich",
                     "USD",
                     Long.MAX_VALUE,

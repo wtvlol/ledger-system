@@ -54,6 +54,9 @@ these checks; a style check alone does not establish correctness.
 | AC-43 Whole-unit precision across currencies | Parameterized `MoneyFxTest.parse_currencyPrecision_matchesIsoMinorUnits`, `convert_zeroDecimalCurrency_roundsOnlyFinalCredit`, `convert_zeroDecimalFractionAndZeroCredit_rejected`; `ExchangeRateTest.transfer_allCurrencies_reversalsAndMonthlyTotalsRemainExact`. |
 | AC-44 Legacy migration and rollback | `SchemaMigrationTest.initialize_legacyLedger_preservesHistoryKeysObservationsAndMonthlySnapshots`, `initialize_failedForeignKeyVerification_entireMigrationRollsBack`. |
 | AC-45 API catalog and exact frontend rate strings | `HttpIntegrationTest.serve_fullApiAndFrontend_correctResponses`; JavaScript currency-table test verifies exact strings and refresh without duplicate rows. |
+| AC-46 User holdings and constraints | `UserHoldingsTest.ownership_databaseConstraints_rejectMissingDuplicateAndChangedOwners`; user catalog checks in `HttpIntegrationTest.serve_fullApiAndFrontend_correctResponses`; JavaScript user-holdings grouping, refresh, and exact selected-account submission test. |
+| AC-47 Same-user FX and persistence | `UserHoldingsTest.holdings_multipleCurrencies_sameOwnerConversionAndReversalRemainExact`, including unrelated balances, normalized replay, exact reversal, restart, and reconciliation. |
+| AC-48 Ownership migration | `SchemaMigrationTest.initialize_versionTwoLedger_addsOwnersWithoutChangingFinancialRecords`, including exact before/after records, edited/deleted quotes, restart, saved report replay, and sequence continuity; `initialize_unrecognizedLegacyOwner_entireOwnershipMigrationRollsBack`; existing version-one and foreign-key rollback tests. |
 
 Checks deliberately corrupt temporary databases by removing selected immutability
 triggers. This demonstrates detection without providing a repair endpoint in the

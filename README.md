@@ -62,6 +62,15 @@ with 1000 and 500 major units respectively: `usd-alice` starts at `1000.00`,
 `2026-01-01T00:00:00Z`, configurable before initial creation.
 Opening balances, currencies, and their effective times remain immutable.
 
+Alice and Bob are explicit users in SQLite's `users` table. Each has 15 currency
+accounts linked by `accounts.user_id`, with one account per user/currency.
+Ownership is immutable. For example, `usd-alice`, `sgd-alice`, and `jpy-alice`
+are three holdings belonging to Alice, each with its own exact balance and history.
+The frontend groups holdings and account choices by user. A transfer from
+`usd-alice` to `sgd-alice` converts Alice's own funds using the stored FX rate;
+a transfer to Bob's account moves funds between users. Unlike currencies are
+never added into one user balance. These identities do not provide authentication.
+
 SQLite's `currencies` table stores the 15 codes, names, and minor-unit precision.
 The separate `exchange_rates` table contains 210 directed pairs: source currency,
 destination currency, exact TEXT rate, and update timestamp. A rate means
@@ -96,13 +105,17 @@ must be corrected before startup succeeds. Changing one direction does not chang
 its reverse. The rate table has pair, foreign-key, positivity, and syntax checks;
 the currency catalog is immutable. The frontend's refresh button reloads rates.
 
-Existing schema version 1 databases migrate automatically and atomically to
-version 2. Their original four accounts, financial records, successful keys,
+Existing schema version 1 and 2 databases migrate automatically and atomically to
+version 3. Version 1's original four accounts, financial records, successful keys,
 monthly observations, and closed reports are preserved. The additional 26 accounts
 open at migration time, so earlier months exclude their opening funds. The posting
 sequence retains its prior high-water mark. If migration or foreign-key validation
-fails, schema/data changes roll back. Version 2 restarts do not reseed quotes or
-accounts. Unknown schema versions fail startup and need an explicit migration.
+fails, schema/data changes roll back. Version 2 migration only adds explicit user
+ownership; it preserves balances and all financial records, including sample data.
+Migration recognizes the existing currency/Alice/Bob account names; an unfamiliar
+owner pattern fails startup rather than assigning funds to a guessed user.
+Version 3 restarts do not reseed users, quotes, or accounts. Unknown schema versions
+fail startup and need an explicit migration.
 
 ## API
 
@@ -125,6 +138,8 @@ JSON strings. A reversal also contains `originalTransactionId`.
 
 | Method and path | Purpose |
 | --- | --- |
+| `GET /users` | List users with their separately maintained currency accounts and exact balances. |
+| `GET /users/{id}` | Get one user's currency holdings; unknown users return 404. |
 | `GET /accounts` | List accounts and recorded balances. |
 | `GET /accounts/{id}` | Get a current committed account balance. |
 | `GET /accounts/{id}/transactions?limit=50` | Start timestamp/sequence-ordered history. |
@@ -323,5 +338,5 @@ See [assumptions and design decisions](docs/assumptions.md),
 
 This is one local application instance with seeded accounts, SQLite demo rates, no fees,
 no authentication, no account creation/deposits, no distributed/durable queue, no
-partial reversals, and no automatic month-end scheduling. There is no rate-edit API or live FX feed. Schema version 1 migrates to version 2;
+partial reversals, and no automatic month-end scheduling. There is no rate-edit API or live FX feed. Schema versions 1 and 2 migrate to version 3;
 future versions require an explicit migration rather than reseeding.

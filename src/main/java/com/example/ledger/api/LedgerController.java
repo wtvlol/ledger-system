@@ -51,6 +51,28 @@ public final class LedgerController {
     }
 
     /**
+     * Returns all users with their separate currency balances.
+     *
+     * @return Users and currency accounts from one consistent committed snapshot.
+     */
+    @GetMapping("/users")
+    public List<Map<String, Object>> getUsers() {
+        return ledger.listUsers();
+    }
+
+    /**
+     * Returns one user's identity and currency holdings.
+     *
+     * @param id User identifier whose currency accounts are requested.
+     * @return User identity and exact currency-specific balances from a committed snapshot.
+     * @throws LedgerException if the user identifier is invalid or unknown.
+     */
+    @GetMapping("/users/{id}")
+    public Map<String, Object> getUser(@PathVariable String id) {
+        return ledger.getUser(id);
+    }
+
+    /**
      * Returns the requested recorded account balance.
      *
      * @param id Account identifier whose recorded balance or history is requested.

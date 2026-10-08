@@ -112,8 +112,7 @@ class ReconciliationTest {
     @Test
     void compareMonth_normalChangesAndCorruption_correctDifference() throws Exception {
         try (TestRig rig = new TestRig(temporaryDirectory.resolve("ledger.db"))) {
-            rig.getJdbc().update(
-                    "INSERT INTO accounts VALUES (?,?,?,?,?)",
+            rig.createAccount(
                     "usd-small",
                     "USD",
                     10000L,
@@ -144,8 +143,7 @@ class ReconciliationTest {
     @Test
     void closeMonth_openingBoundariesAndInactiveMonths_noInventedFunds() throws Exception {
         try (TestRig rig = new TestRig(temporaryDirectory.resolve("ledger.db"))) {
-            rig.getJdbc().update(
-                    "INSERT INTO accounts VALUES (?,?,?,?,?)",
+            rig.createAccount(
                     "usd-later",
                     "USD",
                     10000L,

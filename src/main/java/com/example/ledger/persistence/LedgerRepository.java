@@ -21,8 +21,10 @@ public final class LedgerRepository {
      * @param opening Immutable opening balance in currency minor units.
      * @param openingAt Immutable effective UTC opening timestamp.
      * @param balance Recorded account balance in currency minor units.
+     * @param userId Immutable owner of this currency account.
      */
-    public record Account(String id, String currency, long opening, String openingAt, long balance) {}
+    public record Account(
+            String id, String currency, long opening, String openingAt, long balance, String userId) {}
 
     /**
      * Stores an immutable transfer or reversal and its conversion details.
@@ -94,7 +96,8 @@ public final class LedgerRepository {
                             result.getString("currency"),
                             result.getLong("opening_minor"),
                             result.getString("opening_at"),
-                            result.getLong("balance_minor"));
+                            result.getLong("balance_minor"),
+                            result.getString("user_id"));
     public static final RowMapper<Posting> POSTING = (result, rowNumber) -> posting(result);
 
     /**

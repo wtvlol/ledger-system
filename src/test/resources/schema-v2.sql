@@ -19,19 +19,12 @@ CREATE TABLE IF NOT EXISTS exchange_rates (
     CHECK(source_currency <> destination_currency)
 ) STRICT;
 -- statement
-CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY NOT NULL,
-    display_name TEXT NOT NULL
-) STRICT;
--- statement
 CREATE TABLE IF NOT EXISTS accounts (
     id TEXT PRIMARY KEY NOT NULL,
     currency TEXT NOT NULL REFERENCES currencies(code),
     opening_minor INTEGER NOT NULL CHECK(opening_minor >= 0),
     opening_at TEXT NOT NULL,
-    balance_minor INTEGER NOT NULL CHECK(balance_minor >= 0),
-    user_id TEXT NOT NULL REFERENCES users(id),
-    UNIQUE(user_id,currency)
+    balance_minor INTEGER NOT NULL CHECK(balance_minor >= 0)
 ) STRICT;
 -- statement
 CREATE TABLE IF NOT EXISTS transactions (
@@ -87,7 +80,7 @@ CREATE TABLE IF NOT EXISTS monthly_snapshots (
     PRIMARY KEY(account_id, month)
 ) STRICT;
 -- statement
-CREATE TRIGGER IF NOT EXISTS accounts_opening_immutable BEFORE UPDATE OF id,currency,opening_minor,opening_at,user_id ON accounts
+CREATE TRIGGER IF NOT EXISTS accounts_opening_immutable BEFORE UPDATE OF id,currency,opening_minor,opening_at ON accounts
 BEGIN SELECT RAISE(ABORT, 'Opening balances and account identities are immutable'); END;
 -- statement
 CREATE TRIGGER IF NOT EXISTS accounts_no_delete BEFORE DELETE ON accounts
@@ -128,9 +121,3 @@ BEGIN SELECT RAISE(ABORT, 'Currency minor-unit definitions are immutable'); END;
 -- statement
 CREATE TRIGGER IF NOT EXISTS currencies_no_delete BEFORE DELETE ON currencies
 BEGIN SELECT RAISE(ABORT, 'Currency definitions are immutable'); END;
--- statement
-CREATE TRIGGER IF NOT EXISTS users_no_update BEFORE UPDATE ON users
-BEGIN SELECT RAISE(ABORT, 'User identities are immutable'); END;
--- statement
-CREATE TRIGGER IF NOT EXISTS users_no_delete BEFORE DELETE ON users
-BEGIN SELECT RAISE(ABORT, 'Users cannot be deleted'); END;

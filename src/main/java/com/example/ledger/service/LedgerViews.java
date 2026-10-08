@@ -26,6 +26,8 @@ final class LedgerViews {
         return createMap(
                 "id",
                 account.id(),
+                "userId",
+                account.userId(),
                 "currency",
                 account.currency(),
                 "balance",

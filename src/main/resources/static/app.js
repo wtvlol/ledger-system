@@ -145,29 +145,37 @@ async function submitFinancial(request) {
   }
 }
 
-/** Reloads balances and rates, retaining account selections when possible. */
+/** Reloads user currency holdings and retains account selections. */
 async function refreshAccounts() {
-  const accounts = await callApi('/accounts');
+  const users = await callApi('/users');
+  const accounts = users.flatMap((user) => user.accounts);
   getElement('accounts').replaceChildren();
-  for (const account of accounts) {
-    appendRow('accounts', [
-      account.id, account.currency, account.balance, account.openingBalance,
-    ]);
+  for (const user of users) {
+    for (const account of user.accounts) {
+      appendRow('accounts', [user.name, account.currency, account.id,
+        account.balance, account.openingBalance]);
+    }
   }
   for (const id of ['source', 'destination', 'history-account']) {
     const control = getElement(id);
     const selected = control.value;
     control.replaceChildren();
-    for (const account of accounts) {
-      const option = document.createElement('option');
-      option.value = account.id;
-      option.textContent = `${account.id} (${account.currency})`;
-      control.append(option);
+    for (const user of users) {
+      const group = document.createElement('optgroup');
+      group.label = user.name;
+      for (const account of user.accounts) {
+        const option = document.createElement('option');
+        option.value = account.id;
+        option.textContent = `${account.currency} (${account.id})`;
+        group.append(option);
+      }
+      control.append(group);
     }
     if (accounts.some((account) => account.id === selected)) {
       control.value = selected;
     } else if (id === 'destination' && accounts.length > 1) {
-      control.selectedIndex = 1;
+      control.selectedIndex = users.length > 1 ?
+        users[0].accounts.length : 1;
     }
   }
   await refreshExchangeRates();
