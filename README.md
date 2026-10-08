@@ -4,6 +4,9 @@ A take-home ledger with a barebones HTML frontend, Spring Boot, and persistent
 SQLite. It supports exact transfers across 15 currencies, idempotent retries,
 full reversals, independent integrity checks, and manual monthly reconciliation.
 
+See [assumptions and design decisions](docs/assumptions.md) for the policies,
+scope limits, and defaults used to interpret the assignment.
+
 ## Run
 
 Use Java 17 or newer supported by Spring Boot 4.1.1 and Gradle 9.8.0. Development
@@ -287,7 +290,8 @@ launch and forcibly terminate a separate JVM before or after commit, then reopen
 the same database and retry its original key. They run with the default `test`
 task. They verify process-crash recovery, not physical power-loss hardware.
 
-See [acceptance-test mapping](docs/test-coverage.md) and
+See [assumptions and design decisions](docs/assumptions.md),
+[acceptance-test mapping](docs/test-coverage.md), and
 [coding standards](docs/coding-standards.md). JUnit reports are generated under
 `build/reports/tests/test/`; Checkstyle reports under `build/reports/checkstyle/`.
 
