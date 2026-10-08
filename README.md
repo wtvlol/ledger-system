@@ -4,6 +4,9 @@ A take-home ledger with a barebones HTML frontend, Spring Boot, and persistent
 SQLite. It supports exact transfers across 15 currencies, idempotent retries,
 full reversals, independent integrity checks, and manual monthly reconciliation.
 
+See [assumptions and design decisions](docs/assumptions.md) for the policies,
+scope limits, and defaults used to interpret the assignment.
+
 ## Run
 
 Use Java 17 or newer supported by Spring Boot 4.1.1 and Gradle 9.8.0. Development
@@ -137,9 +140,11 @@ JSON strings. A reversal also contains `originalTransactionId`.
 Errors include `code`, `message`, `retryable`, and `outcome`. Invalid input returns
 400, missing records/routes 404, unsupported methods 405, business conflicts 409,
 retryable queue/clock/database
-conditions 503, and unexpected failures 500. `NOT_POSTED` is a confirmed failure;
-`UNKNOWN` means the caller must retry the original key to resolve its result.
-HTTP timeout does not cancel the worker or establish failure.
+conditions 503, and unexpected failures 500. `NOT_POSTED` confirms that this
+attempt did not post; it does not resolve an earlier uncertain attempt when the
+retry was rejected before the successful-key lookup. `UNKNOWN` means the caller
+must retry the original key to resolve its result. HTTP timeout does not cancel
+the worker or establish failure.
 
 Successful keys are global across transfers and reversals and never expire while
 ledger records exist. Same-key retries replay the original immutable result;
@@ -156,6 +161,7 @@ failures, and shutdown do not enable a new action or discard that key. The brows
 keeps retrying the same details, including after reload, until a committed replay
 or a definitive worker business rejection resolves the request. Unknown error
 codes preserve uncertainty rather than assume that a prior attempt failed.
+A first attempt confirmed never posted still permits a deliberate new action.
 
 ## Exact arithmetic and FX
 
@@ -277,6 +283,30 @@ Spring's server graceful-shutdown phase is 20 seconds. The database-lock wait is
 independent of the HTTP deadline. Defaults prioritize clarity and bounded memory
 for a local demo; they are not throughput promises.
 
+## Java source structure
+
+Application code lives under `src/main/java/com/example/ledger/`:
+
+| Package | Responsibility |
+| --- | --- |
+| Root | `LedgerApplication`, the Spring Boot entry point and component-scan root. |
+| `api` | HTTP endpoints, asynchronous response waiting, and API error handling. |
+| `config` | Startup settings and Spring bean wiring. |
+| `domain` | Exact money arithmetic, currency precision, FX calculations, and ledger errors. |
+| `persistence` | SQLite connections, schema initialization/migration, and transaction-scoped queries. |
+| `service` | Queued financial operations, reconciliation, and account/posting response views. |
+| `concurrency` | The bounded FIFO write worker and its shutdown lifecycle. |
+| `support` | Shared UTC timestamp formatting and ordered report-object construction. |
+
+JUnit packages under `src/test/java/com/example/ledger/` mirror the relevant
+application packages. Shared fixtures, worker-failure assertions, and the child
+JVM used by crash recovery tests live in the test-only `support` package.
+
+Financial transaction boundaries remain in `service/LedgerService`: persistence
+queries use the caller's transaction, and financial writes run through the single
+worker. Account/posting view helpers remain internal to the service package;
+shared formatting has no dependency on the API, service, or persistence packages.
+
 ## Verification and scope
 
 JUnit tests are in `src/test/java`; JavaScript tests are in `src/test/js`. Temporary
@@ -286,7 +316,8 @@ launch and forcibly terminate a separate JVM before or after commit, then reopen
 the same database and retry its original key. They run with the default `test`
 task. They verify process-crash recovery, not physical power-loss hardware.
 
-See [acceptance-test mapping](docs/test-coverage.md) and
+See [assumptions and design decisions](docs/assumptions.md),
+[acceptance-test mapping](docs/test-coverage.md), and
 [coding standards](docs/coding-standards.md). JUnit reports are generated under
 `build/reports/tests/test/`; Checkstyle reports under `build/reports/checkstyle/`.
 
